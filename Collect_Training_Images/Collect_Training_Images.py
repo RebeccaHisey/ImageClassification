@@ -58,7 +58,8 @@ class Collect_Training_ImagesWidget(ScriptedLoadableModuleWidget):
 
     self.modelSelector = qt.QComboBox()
     self.modelSelector.addItems(["Select model"])
-    modelNames = os.listdir(os.path.join(self.moduleDir,os.pardir,"Models/retrainContainer"))
+    modelDirectoryContents = os.listdir(os.path.join(self.moduleDir,os.pardir,"Models/retrainContainer"))
+    modelNames = [dir for dir in modelDirectoryContents if dir.find(".") == -1]
     self.modelSelector.addItems(["Create new model"])
     self.modelSelector.addItems(modelNames)
     parametersFormLayout.addRow(self.modelSelector)
@@ -427,9 +428,11 @@ class Collect_Training_ImagesLogic(ScriptedLoadableModuleLogic):
 
   def retrainClassifier(self):
     logging.info("creating docker container")
+    retrainContainerPath = slicer.modules.collect_training_images.path
+    retrainContainerPath = retrainContainerPath.replace("Collect_Training_Images/Collect_Training_Images.py","Models/retrainContainer")
+    volumeflag = "-v=" + retrainContainerPath + ":/app"
     cmd = ["C:/Program Files/Docker/Docker/resources/bin/docker.exe", "create", "--name", "retrain",
-           "-v=/c/Users/hisey/Documents/ImageClassification/Models/retrainContainer:/app",
-           "-p", "80:5000", "-p","6006:6006","retrainimage"]
+           volumeflag, "-p", "80:5000", "-p","6006:6006","retrainimage"]
     p = subprocess.Popen(cmd, stdin=subprocess.PIPE, shell=True)
     logging.info("starting docker container")
     p.communicate()
