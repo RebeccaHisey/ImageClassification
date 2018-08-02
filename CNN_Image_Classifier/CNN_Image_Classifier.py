@@ -182,10 +182,12 @@ class CNN_Image_ClassifierLogic(ScriptedLoadableModuleLogic):
 			cv2Path = cv2File
 		cv2 = imp.load_dynamic('cv2', cv2File)
 
-
+    classifierContainerPath = slicer.modules.collect_training_images.path
+    self.classifierContainerPath = classifierContainerPath.replace("Collect_Training_Images/Collect_Training_Images.py",
+                                                        "Models/classifierContainer")
+    volumeflag = "-v=" + self.classifierContainerPath.replace("C:","/c") + ":/app"
     cmd = ["C:/Program Files/Docker/Docker/resources/bin/docker.exe", "create","--name", "classify",
-						   "-v=/c/Users/hisey/Documents/ImageClassification/Models/classifierContainer:/app",
-						   "-p", "80:5000", "classifierimage"]
+						   volumeflag,"-p", "80:5000", "classifierimage"]
     p = subprocess.Popen(cmd, stdin = subprocess.PIPE, stdout = subprocess.PIPE, stderr = subprocess.PIPE, shell=True)
     p.communicate()
     cmd = ["C:/Program Files/Docker/Docker/resources/bin/docker.exe", "start", "classify"]
@@ -237,25 +239,25 @@ class CNN_Image_ClassifierLogic(ScriptedLoadableModuleLogic):
       imgSize = imDataBGR.shape
       imgSize = numpy.array(imgSize)
       start = time.time()
-      numpy.save('C:/Users/hisey/Documents/ImageClassification/Models/classifierContainer/pictureSize.npy',imgSize)
-      numpy.save('C:/Users/hisey/Documents/ImageClassification/Models/classifierContainer/picture.npy',imDataBGR)
-      fileMod1 = os.path.getmtime('C:/Users/hisey/Documents/ImageClassification/Models/classifierContainer/textLabels.txt')
+      numpy.save(self.classifierContainerPath + '/pictureSize.npy',imgSize)
+      numpy.save(self.classifierContainerPath + '/picture.npy',imDataBGR)
+      fileMod1 = os.path.getmtime(self.classifierContainerPath + '/textLabels.txt')
       cmd = ["C:/Program Files/Docker/Docker/resources/bin/docker.exe", "container", "unpause",
              "classify"]
       p = subprocess.call(cmd, shell=True)
       currentTime = time.time()
       fileRead = False
-      fileMod2 = os.path.getmtime('C:/Users/hisey/Documents/ImageClassification/Models/classifierContainer/textLabels.txt')
+      fileMod2 = os.path.getmtime(self.classifierContainerPath + '/textLabels.txt')
       while fileMod2 == fileMod1 and time.time() - start < 5:
           time.sleep(0.2)
-          fileMod2 = os.path.getmtime('C:/Users/hisey/Documents/ImageClassification/Models/classifierContainer/textLabels.txt')
+          fileMod2 = os.path.getmtime(self.classifierContainerPath + '/textLabels.txt')
       cmd = ["C:/Program Files/Docker/Docker/resources/bin/docker.exe", "container", "pause",
              "classify"]
       p = subprocess.call(cmd, shell=True)
-      fileMod3 = os.path.getmtime('C:/Users/hisey/Documents/ImageClassification/Models/classifierContainer/textLabels.txt')
+      fileMod3 = os.path.getmtime(self.classifierContainerPath + '/textLabels.txt')
       while not fileRead and time.time() - currentTime < 7:
           try:
-              fName = 'C:/Users/hisey/Documents/ImageClassification/Models/classifierContainer/textLabels.txt'
+              fName = self.classifierContainerPath + '/textLabels.txt'
               with open(fName) as f:
                   self.currentLabel = f.readline()
                   self.confidenceSunglasses = f.readline()
