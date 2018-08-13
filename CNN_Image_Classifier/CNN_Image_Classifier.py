@@ -57,7 +57,8 @@ class CNN_Image_ClassifierWidget(ScriptedLoadableModuleWidget):
 
     self.modelSelector = qt.QComboBox()
     self.modelSelector.addItems(["Select model"])
-    modelNames = os.listdir(os.path.join(self.moduleDir, os.pardir, "Models/retrainContainer"))
+    modelDirectoryContents = os.listdir(os.path.join(self.moduleDir, os.pardir, "Models/retrainContainer"))
+    modelNames = [dir for dir in modelDirectoryContents if dir.find(".") == -1 and dir != "Dockerfile"]
     self.modelSelector.addItems(["Create new model"])
     self.modelSelector.addItems(modelNames)
     parametersFormLayout.addRow(self.modelSelector)
@@ -70,8 +71,19 @@ class CNN_Image_ClassifierWidget(ScriptedLoadableModuleWidget):
     self.applyButton.enabled = False
     parametersFormLayout.addRow(self.applyButton)
 
+    #
+    # Object table
+    #
+    self.objectTable = qt.QTableWidget()
+    self.objectTable.setColumnCount(3)
+    self.objectTable.setHorizontalHeaderLabels(["Name","Found","Confidence"])
+    parametersFormLayout.addRow(self.objectTable)
+
+
+
     # connections
     self.applyButton.connect('clicked(bool)', self.onApplyButton)
+    self.modelSelector.connect('currentIndexChanged(int)',self.onModelSelected)
 
     # Add vertical spacer
     self.layout.addStretch(1)
@@ -147,11 +159,21 @@ class CNN_Image_ClassifierWidget(ScriptedLoadableModuleWidget):
 
   def onApplyButton(self):
     if self.applyButton.text == "Start":
-      self.logic.run()
+      self.logic.run(self.objectTable)
       self.applyButton.setText("Stop")
     else:
       self.logic.stopClassifier()
       self.applyButton.setText("Start")
+
+  def onModelSelected(self):
+    if self.modelSelector.currentText != "Create new model" and self.modelSelector.currentText != "Select model":
+      self.currentModelDirectory = os.path.join(self.moduleDir, os.pardir, "Models/retrainContainer", self.modelSelector.currentText)
+      modelObjectClasses = os.listdir(os.path.join(self.currentModelDirectory,"training_photos"))
+      self.currentObjectClasses = [dir for dir in modelObjectClasses if dir.find(".") == -1]
+      self.objectTable.setRowCount(len(self.currentObjectClasses))
+      for i in range (len(self.currentObjectClasses)):
+        self.objectTable.setItem(i,0,qt.QTableWidgetItem(self.currentObjectClasses[i]))
+        self.objectTable.setItem(i,1,qt.QTableWidgetItem("No"))
 
 #
 # CNN_Image_ClassifierLogic
@@ -159,7 +181,9 @@ class CNN_Image_ClassifierWidget(ScriptedLoadableModuleWidget):
 
 class CNN_Image_ClassifierLogic(ScriptedLoadableModuleLogic):
 
-  def run(self):
+  def run(self,objectTable):
+    self.objectTable = objectTable
+    self.numObjects = self.objectTable.rowCount
     self.webcamReference = slicer.util.getNode('Webcam_Reference')
     numpy.set_printoptions(threshold=numpy.nan)
     try:
@@ -211,6 +235,7 @@ class CNN_Image_ClassifierLogic(ScriptedLoadableModuleLogic):
 
   def onWebcamImageModified(self,caller, eventID):
     if time.time() - self.lastUpdateSec > 1.5:
+      self.confidences = []
       try:
         # the module is in the python path
         import cv2
@@ -260,19 +285,21 @@ class CNN_Image_ClassifierLogic(ScriptedLoadableModuleLogic):
               fName = self.classifierContainerPath + '/textLabels.txt'
               with open(fName) as f:
                   self.currentLabel = f.readline()
-                  self.confidenceSunglasses = f.readline()
-                  self.confidenceWatch = f.readline()
+                  for i in range(self.numObjects):
+                    self.confidences.append(f.readline())
               fileRead = True
           except IOError:
               time.sleep(0.05)
       end = time.time()
       #logging.info(self.currentLabel == "sunglasses\n")
-      if self.currentLabel == 'sunglasses\n' and float(self.confidenceSunglasses) < 0.60:
+      if self.currentLabel == 'sunglasses\n' and float(self.confidences[0]) < 0.60:
         self.currentLabel = "nothing"
-      elif self.currentLabel == 'watch\n' and float(self.confidenceWatch) < 0.85:
+      elif self.currentLabel == 'watch\n' and float(self.confidences[1]) < 0.85:
         self.currentLabel = "nothing"
-      logging.info(self.currentLabel + ' ' + self.confidenceSunglasses + " " + self.confidenceWatch)
+      logging.info(self.currentLabel + ' ' + self.confidences[0] + " " + self.confidences[1])
+      logging.info(self.objectTable.item(1,0).text())
       self.lastUpdateSec = time.time()
+      self.updateObjectTable()
 
   def stopClassifier(self):
     self.webcamReference.RemoveObserver(self.webcamObserver)
@@ -281,6 +308,15 @@ class CNN_Image_ClassifierLogic(ScriptedLoadableModuleLogic):
     p = subprocess.call(cmd, shell=True)
     cmd = ["C:/Program Files/Docker/Docker/resources/bin/docker.exe", "container", "rm", "classify"]
     p = subprocess.call(cmd, shell=True)
+
+  def updateObjectTable(self):
+    for i in range(self.numObjects):
+      if self.currentLabel == str(self.objectTable.item(i,0).text() + "\n"):
+        self.objectTable.setItem(i,1,qt.QTableWidgetItem("Yes"))
+        self.objectTable.setItem(i,2,qt.QTableWidgetItem(self.confidences[i]))
+      else:
+        self.objectTable.setItem(i, 1, qt.QTableWidgetItem("No"))
+        self.objectTable.setItem(i, 2, qt.QTableWidgetItem(self.confidences[i]))
 
 
 class CNN_Image_ClassifierTest(ScriptedLoadableModuleTest):
