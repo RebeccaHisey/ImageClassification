@@ -59,7 +59,7 @@ class Collect_Training_ImagesWidget(ScriptedLoadableModuleWidget):
     self.modelSelector = qt.QComboBox()
     self.modelSelector.addItems(["Select model"])
     modelDirectoryContents = os.listdir(os.path.join(self.moduleDir,os.pardir,"Models/retrainContainer"))
-    modelNames = [dir for dir in modelDirectoryContents if dir.find(".") == -1]
+    modelNames = [dir for dir in modelDirectoryContents if dir.find(".") == -1 and dir != "Dockerfile"]
     self.modelSelector.addItems(["Create new model"])
     self.modelSelector.addItems(modelNames)
     parametersFormLayout.addRow(self.modelSelector)
