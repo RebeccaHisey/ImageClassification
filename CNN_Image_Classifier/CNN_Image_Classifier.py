@@ -79,11 +79,29 @@ class CNN_Image_ClassifierWidget(ScriptedLoadableModuleWidget):
     self.objectTable.setHorizontalHeaderLabels(["Name","Found","Confidence"])
     parametersFormLayout.addRow(self.objectTable)
 
+    #
+    # Adjust Confidence Thresholds
+    #
+    confidenceThresholdsCollapsibleButton = ctk.ctkCollapsibleButton()
+    confidenceThresholdsCollapsibleButton.text = "Confidence Thresholds"
+    self.layout.addWidget(confidenceThresholdsCollapsibleButton)
 
+    confidenceFormLayout = qt.QFormLayout(confidenceThresholdsCollapsibleButton)
+
+    self.confidenceSlider = qt.QSlider(0x1) #horizontal slider
+    self.confidenceSlider.setRange(0,100)
+    self.confidenceSlider.setTickInterval(5)
+    self.confidenceSlider.setTickPosition(2) #Ticks appear below slider
+    self.confidenceSlider.setSliderPosition(80)
+    self.confidenceSlider.setToolTip("Set the minimum degree of confidence that must be met for an object to be considered found")
+    confidenceFormLayout.addRow("Confidence: ",self.confidenceSlider)
+    self.confidenceLabel = qt.QLabel("80%")
+    confidenceFormLayout.addRow(self.confidenceLabel)
 
     # connections
     self.applyButton.connect('clicked(bool)', self.onApplyButton)
     self.modelSelector.connect('currentIndexChanged(int)',self.onModelSelected)
+    self.confidenceSlider.connect('sliderMoved(int)',self.onConfidenceChanged)
 
     # Add vertical spacer
     self.layout.addStretch(1)
@@ -159,7 +177,7 @@ class CNN_Image_ClassifierWidget(ScriptedLoadableModuleWidget):
 
   def onApplyButton(self):
     if self.applyButton.text == "Start":
-      self.logic.run(self.objectTable)
+      self.logic.run(self.objectTable,self.confidenceSlider)
       self.applyButton.setText("Stop")
     else:
       self.logic.stopClassifier()
@@ -175,15 +193,19 @@ class CNN_Image_ClassifierWidget(ScriptedLoadableModuleWidget):
         self.objectTable.setItem(i,0,qt.QTableWidgetItem(self.currentObjectClasses[i]))
         self.objectTable.setItem(i,1,qt.QTableWidgetItem("No"))
 
+  def onConfidenceChanged(self):
+    self.confidenceLabel.text = str(self.confidenceSlider.sliderPosition) + "%"
+
 #
 # CNN_Image_ClassifierLogic
 #
 
 class CNN_Image_ClassifierLogic(ScriptedLoadableModuleLogic):
 
-  def run(self,objectTable):
+  def run(self,objectTable,confidenceSlider):
     self.objectTable = objectTable
     self.numObjects = self.objectTable.rowCount
+    self.confidenceSlider = confidenceSlider
     self.webcamReference = slicer.util.getNode('Webcam_Reference')
     numpy.set_printoptions(threshold=numpy.nan)
     try:
@@ -292,12 +314,11 @@ class CNN_Image_ClassifierLogic(ScriptedLoadableModuleLogic):
               time.sleep(0.05)
       end = time.time()
       #logging.info(self.currentLabel == "sunglasses\n")
-      if self.currentLabel == 'sunglasses\n' and float(self.confidences[0]) < 0.60:
+      if self.currentLabel == 'sunglasses\n' and float(self.confidences[0]) < (self.confidenceSlider.value/100.0):
         self.currentLabel = "nothing"
-      elif self.currentLabel == 'watch\n' and float(self.confidences[1]) < 0.85:
+      elif self.currentLabel == 'watch\n' and float(self.confidences[1]) < (self.confidenceSlider.value/100.0):
         self.currentLabel = "nothing"
-      logging.info(self.currentLabel + ' ' + self.confidences[0] + " " + self.confidences[1])
-      logging.info(self.objectTable.item(1,0).text())
+      #logging.info(self.currentLabel + ' ' + self.confidences[0] + " " + self.confidences[1])
       self.lastUpdateSec = time.time()
       self.updateObjectTable()
 
