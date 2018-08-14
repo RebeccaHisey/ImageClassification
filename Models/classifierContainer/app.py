@@ -94,16 +94,26 @@ def main():
 	input_operation = graph.get_operation_by_name(input_name)
 	output_operation = graph.get_operation_by_name(output_name)
 	currentTime = time.time()
-	startTime = time.time()
+
+	filemodTime1 = 0
 
 	while True:
+		filemodTime2 = os.path.getmtime('textLabels.txt')
+		startTime = time.time()
+		while filemodTime1 == filemodTime2 and time.time() - startTime < 5:
+			time.sleep(0.2)
+			filemodTime2 = os.path.getmtime('textLabels.txt')
 		imgSize = np.load('pictureSize.npy',fix_imports=True)
 		imageFile = np.load('picture.npy',fix_imports=True)
 		imageFile.reshape(imgSize)
+
+		filemodTime1 = time.time()
 
 		(label, p) = classify_image(graph,imageFile,label_file,input_operation,output_operation)
 		with open('textLabels.txt','w') as f:
 			f.write(label + "\n" + str(p[0]) + '\n' + str(p[1]))
 		currentTime = time.time()
+
+
 
 main()
