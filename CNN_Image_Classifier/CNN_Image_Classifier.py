@@ -231,7 +231,7 @@ class CNN_Image_ClassifierLogic(ScriptedLoadableModuleLogic):
     classifierContainerPath = slicer.modules.collect_training_images.path
     self.classifierContainerPath = classifierContainerPath.replace("Collect_Training_Images/Collect_Training_Images.py",
                                                         "Models/classifierContainer")
-    volumeflag = "-v=" + self.classifierContainerPath.replace("C:","/c") + ":/app"
+    volumeflag = "-v=" + self.classifierContainerPath.replace("C:","/c") + ":/app:rw"
     cmd = ["C:/Program Files/Docker/Docker/resources/bin/docker.exe", "create","--name", "classify",
 						   volumeflag,"-p", "80:5000", "classifierimage"]
     p = subprocess.Popen(cmd, stdin = subprocess.PIPE, stdout = subprocess.PIPE, stderr = subprocess.PIPE, shell=True)
@@ -256,7 +256,7 @@ class CNN_Image_ClassifierLogic(ScriptedLoadableModuleLogic):
     return imageMat
 
   def onWebcamImageModified(self,caller, eventID):
-    if time.time() - self.lastUpdateSec > 1.5:
+    if time.time() - self.lastUpdateSec > 0.7:
       self.confidences = []
       try:
         # the module is in the python path
@@ -277,31 +277,20 @@ class CNN_Image_ClassifierLogic(ScriptedLoadableModuleLogic):
         if not os.path.isfile(cv2Path):
           cv2Path = cv2File
         cv2 = imp.load_dynamic('cv2', cv2File)
-      cmd = ["C:/Program Files/Docker/Docker/resources/bin/docker.exe", "container", "pause",
-             "classify"]
-      p = subprocess.call(cmd, shell=True)
       imdata = self.getVtkImageDataAsOpenCVMat('Webcam_Reference')
       imDataBGR = cv2.cvtColor(imdata, cv2.COLOR_RGB2BGR)
-      #img = cv2.imread(image)
       imgSize = imDataBGR.shape
       imgSize = numpy.array(imgSize)
       start = time.time()
       numpy.save(self.classifierContainerPath + '/pictureSize.npy',imgSize)
       numpy.save(self.classifierContainerPath + '/picture.npy',imDataBGR)
       fileMod1 = os.path.getmtime(self.classifierContainerPath + '/textLabels.txt')
-      cmd = ["C:/Program Files/Docker/Docker/resources/bin/docker.exe", "container", "unpause",
-             "classify"]
-      p = subprocess.call(cmd, shell=True)
       currentTime = time.time()
       fileRead = False
       fileMod2 = os.path.getmtime(self.classifierContainerPath + '/textLabels.txt')
-      while fileMod2 == fileMod1 and time.time() - start < 5:
+      while fileMod2 == fileMod1 and time.time() - start < 5: # Sleep until classifier produces a new image
           time.sleep(0.2)
           fileMod2 = os.path.getmtime(self.classifierContainerPath + '/textLabels.txt')
-      cmd = ["C:/Program Files/Docker/Docker/resources/bin/docker.exe", "container", "pause",
-             "classify"]
-      p = subprocess.call(cmd, shell=True)
-      fileMod3 = os.path.getmtime(self.classifierContainerPath + '/textLabels.txt')
       while not fileRead and time.time() - currentTime < 7:
           try:
               fName = self.classifierContainerPath + '/textLabels.txt'
@@ -313,7 +302,6 @@ class CNN_Image_ClassifierLogic(ScriptedLoadableModuleLogic):
           except IOError:
               time.sleep(0.05)
       end = time.time()
-      #logging.info(self.currentLabel == "sunglasses\n")
       if self.currentLabel == 'sunglasses\n' and float(self.confidences[0]) < (self.confidenceSlider.value/100.0):
         self.currentLabel = "nothing"
       elif self.currentLabel == 'watch\n' and float(self.confidences[1]) < (self.confidenceSlider.value/100.0):
