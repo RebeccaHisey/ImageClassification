@@ -173,7 +173,7 @@ class CNN_Image_ClassifierWidget(ScriptedLoadableModuleWidget):
     pass
 
   def onSelect(self):
-    self.applyButton.enabled = True
+    self.applyButton.enabled = False
 
   def onApplyButton(self):
     if self.applyButton.text == "Start":
@@ -184,7 +184,8 @@ class CNN_Image_ClassifierWidget(ScriptedLoadableModuleWidget):
       self.applyButton.setText("Start")
 
   def onModelSelected(self):
-    if self.modelSelector.currentText != "Create new model" and self.modelSelector.currentText != "Select model":
+    if self.modelSelector.currentText != "Select model":
+      self.applyButton.enabled = True
       self.currentModelDirectory = os.path.join(self.moduleDir, os.pardir, "Models/retrainContainer", self.modelSelector.currentText)
       modelObjectClasses = os.listdir(os.path.join(self.currentModelDirectory,"training_photos"))
       self.currentObjectClasses = [dir for dir in modelObjectClasses if dir.find(".") == -1]
@@ -227,21 +228,23 @@ class CNN_Image_ClassifierLogic(ScriptedLoadableModuleLogic):
 		if not os.path.isfile(cv2Path):
 			cv2Path = cv2File
 		cv2 = imp.load_dynamic('cv2', cv2File)
-
-    classifierContainerPath = slicer.modules.collect_training_images.path
-    self.classifierContainerPath = classifierContainerPath.replace("Collect_Training_Images/Collect_Training_Images.py",
-                                                        "Models/classifierContainer")
-    volumeflag = "-v=" + self.classifierContainerPath.replace("C:","/c") + ":/app:rw"
-    cmd = ["C:/Program Files/Docker/Docker/resources/bin/docker.exe", "create","--name", "classify",
-						   volumeflag,"-p", "80:5000", "classifierimage"]
-    p = subprocess.Popen(cmd, stdin = subprocess.PIPE, stdout = subprocess.PIPE, stderr = subprocess.PIPE, shell=True)
-    p.communicate()
-    cmd = ["C:/Program Files/Docker/Docker/resources/bin/docker.exe", "start", "classify"]
-    p = subprocess.call(cmd, stdin=subprocess.PIPE,shell=True)
-    time.sleep(1.5)
+    self.createClassifierContainer()
     self.currentLabel = ""
     self.lastUpdateSec = 0
     self.webcamObserver = self.webcamReference.AddObserver(slicer.vtkMRMLVolumeNode.ImageDataModifiedEvent,self.onWebcamImageModified)
+
+  def createClassifierContainer(self):
+    classifierContainerPath = slicer.modules.collect_training_images.path
+    self.classifierContainerPath = classifierContainerPath.replace("Collect_Training_Images/Collect_Training_Images.py",
+                                                                   "Models/classifierContainer")
+    volumeflag = "-v=" + self.classifierContainerPath.replace("C:", "/c") + ":/app:rw"
+    cmd = ["C:/Program Files/Docker/Docker/resources/bin/docker.exe", "create", "--name", "classify",
+           volumeflag, "-p", "80:5000", "classifierimage"]
+    p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+    p.communicate()
+    cmd = ["C:/Program Files/Docker/Docker/resources/bin/docker.exe", "start", "classify"]
+    p = subprocess.call(cmd, stdin=subprocess.PIPE, shell=True)
+    time.sleep(1.5)
 
   def getVtkImageDataAsOpenCVMat(self, volumeNodeName):
     cameraVolume = slicer.util.getNode(volumeNodeName)
@@ -257,6 +260,9 @@ class CNN_Image_ClassifierLogic(ScriptedLoadableModuleLogic):
 
   def onWebcamImageModified(self,caller, eventID):
     if time.time() - self.lastUpdateSec > 0.7:
+      self.classifyImage()
+
+  def classifyImage(self):
       self.confidences = []
       try:
         # the module is in the python path
@@ -302,10 +308,6 @@ class CNN_Image_ClassifierLogic(ScriptedLoadableModuleLogic):
           except IOError:
               time.sleep(0.05)
       end = time.time()
-      if self.currentLabel == 'sunglasses\n' and float(self.confidences[0]) < (self.confidenceSlider.value/100.0):
-        self.currentLabel = "nothing"
-      elif self.currentLabel == 'watch\n' and float(self.confidences[1]) < (self.confidenceSlider.value/100.0):
-        self.currentLabel = "nothing"
       #logging.info(self.currentLabel + ' ' + self.confidences[0] + " " + self.confidences[1])
       self.lastUpdateSec = time.time()
       self.updateObjectTable()
@@ -320,12 +322,17 @@ class CNN_Image_ClassifierLogic(ScriptedLoadableModuleLogic):
 
   def updateObjectTable(self):
     for i in range(self.numObjects):
-      if self.currentLabel == str(self.objectTable.item(i,0).text() + "\n"):
+      if self.currentLabel == str(self.objectTable.item(i,0).text() + "\n") and float(self.confidences[i]) > self.confidenceSlider.value/100.0:
         self.objectTable.setItem(i,1,qt.QTableWidgetItem("Yes"))
         self.objectTable.setItem(i,2,qt.QTableWidgetItem(self.confidences[i]))
+        self.currentConfidence = self.confidences[i]
       else:
         self.objectTable.setItem(i, 1, qt.QTableWidgetItem("No"))
         self.objectTable.setItem(i, 2, qt.QTableWidgetItem(self.confidences[i]))
+
+  def getFoundObject(self):
+    self.classifyImage()
+    return (self.currentLabel,self.currentConfidence)
 
 
 class CNN_Image_ClassifierTest(ScriptedLoadableModuleTest):
