@@ -7,7 +7,8 @@
 - Need to create an account
 - Install using linux containers
 5. Install tensorflow (optional)
-- Only needed to visualize training metrics
+- Only needed to visualize training metrics using tensorboard
+- CPU only version
 -  https://www.tensorflow.org/versions/r1.8/install/
 6. Build Retrain Container
 - Open command prompt
