@@ -270,10 +270,13 @@ class Collect_Training_ImagesWidget(ScriptedLoadableModuleWidget):
       self.trainingPhotoPath = os.path.join(self.moduleDir,os.pardir,"Models/retrainContainer",self.modelSelector.currentText,"training_photos")
       self.imageSaveDirectoryLineEdit.currentPath = self.trainingPhotoPath
       self.addImageClassesToComboBox()
+    else:
+      for i in range(2, self.imageClassComboBox.count + 1):
+        self.imageClassComboBox.removeItem(i)
     self.retrainClassifierButton.enabled = self.modelSelector.currentText != "Select model" and self.modelSelector != "Create new model"
 
   def addImageClassesToComboBox(self):
-    for i in range(2,self.imageClassComboBox.count):
+    for i in range(2,self.imageClassComboBox.count + 1):
       self.imageClassComboBox.removeItem(i)
     imageClassList = os.listdir(self.trainingPhotoPath)
     self.imageClassList = [dir for dir in imageClassList if dir.rfind(".") == -1] #get only directories
@@ -282,7 +285,7 @@ class Collect_Training_ImagesWidget(ScriptedLoadableModuleWidget):
   def onNewModelAdded(self):
     self.currentModelName = self.modelNameLineEdit.text
     try:
-      modelPath = os.path.join(self.moduleDir,os.pardir,"Models",self.currentModelName)
+      modelPath = os.path.join(self.moduleDir,os.pardir,"Models/retrainContainer",self.currentModelName)
       os.mkdir(modelPath)
       os.mkdir(os.path.join(modelPath,"training_photos"))
       os.mkdir(os.path.join(modelPath,"trained_model"))
