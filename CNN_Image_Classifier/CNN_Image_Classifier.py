@@ -204,6 +204,7 @@ class CNN_Image_ClassifierWidget(ScriptedLoadableModuleWidget):
 class CNN_Image_ClassifierLogic(ScriptedLoadableModuleLogic):
 
   def run(self,objectTable,confidenceSlider):
+    self.runWithWidget = True
     self.objectTable = objectTable
     self.numObjects = self.objectTable.rowCount
     self.confidenceSlider = confidenceSlider
@@ -228,10 +229,26 @@ class CNN_Image_ClassifierLogic(ScriptedLoadableModuleLogic):
 		if not os.path.isfile(cv2Path):
 			cv2Path = cv2File
 		cv2 = imp.load_dynamic('cv2', cv2File)
+    self.classifierContainerStarted = False
     self.createClassifierContainer()
     self.currentLabel = ""
     self.lastUpdateSec = 0
     self.webcamObserver = self.webcamReference.AddObserver(slicer.vtkMRMLVolumeNode.ImageDataModifiedEvent,self.onWebcamImageModified)
+
+  def runWithoutWidget(self,modelName):
+    self.runWithWidget = False
+    self.classifierContainerStarted = False
+    self.createClassifierContainer()
+    self.currentLabel = ""
+    self.lastUpdateSec = 0
+    self.webcamReference = slicer.util.getNode('Webcam_Reference')
+    self.moduleDir = os.path.dirname(slicer.modules.collect_training_images.path)
+    self.currentModelDirectory = os.path.join(self.moduleDir, os.pardir, "Models/retrainContainer",modelName)
+    modelObjectClasses = os.listdir(os.path.join(self.currentModelDirectory, "training_photos"))
+    self.currentObjectClasses = [dir for dir in modelObjectClasses if dir.find(".") == -1]
+    self.numObjects = len(self.currentObjectClasses)
+
+
 
   def createClassifierContainer(self):
     classifierContainerPath = slicer.modules.collect_training_images.path
@@ -245,6 +262,7 @@ class CNN_Image_ClassifierLogic(ScriptedLoadableModuleLogic):
     cmd = ["C:/Program Files/Docker/Docker/resources/bin/docker.exe", "start", "classify"]
     p = subprocess.call(cmd, stdin=subprocess.PIPE, shell=True)
     time.sleep(1.5)
+    self.classifierContainerStarted = True
 
   def getVtkImageDataAsOpenCVMat(self, volumeNodeName):
     cameraVolume = slicer.util.getNode(volumeNodeName)
@@ -288,6 +306,8 @@ class CNN_Image_ClassifierLogic(ScriptedLoadableModuleLogic):
       imgSize = imDataBGR.shape
       imgSize = numpy.array(imgSize)
       start = time.time()
+      if self.classifierContainerStarted == False:
+        self.createClassifierContainer()
       numpy.save(self.classifierContainerPath + '/pictureSize.npy',imgSize)
       numpy.save(self.classifierContainerPath + '/picture.npy',imDataBGR)
       fileMod1 = os.path.getmtime(self.classifierContainerPath + '/textLabels.txt')
@@ -310,15 +330,18 @@ class CNN_Image_ClassifierLogic(ScriptedLoadableModuleLogic):
       end = time.time()
       #logging.info(self.currentLabel + ' ' + self.confidences[0] + " " + self.confidences[1])
       self.lastUpdateSec = time.time()
-      self.updateObjectTable()
+      if self.runWithWidget == True:
+        self.updateObjectTable()
 
   def stopClassifier(self):
-    self.webcamReference.RemoveObserver(self.webcamObserver)
-    self.webcamObserver = None
+    if self.runWithWidget == True:
+      self.webcamReference.RemoveObserver(self.webcamObserver)
+      self.webcamObserver = None
     cmd = ["C:/Program Files/Docker/Docker/resources/bin/docker.exe", "container", "stop", "classify"]
     p = subprocess.call(cmd, shell=True)
     cmd = ["C:/Program Files/Docker/Docker/resources/bin/docker.exe", "container", "rm", "classify"]
     p = subprocess.call(cmd, shell=True)
+    self.classifierContainerStarted = False
 
   def updateObjectTable(self):
     for i in range(self.numObjects):
@@ -332,6 +355,11 @@ class CNN_Image_ClassifierLogic(ScriptedLoadableModuleLogic):
 
   def getFoundObject(self):
     self.classifyImage()
+    imgClass = 0
+    while imgClass < self.numObjects and self.currentLabel != self.currentObjectClasses[imgClass] + '\n':
+      imgClass += 1
+    if self.currentLabel == self.currentObjectClasses[imgClass] + '\n':
+      self.currentConfidence = self.confidences[imgClass]
     return (self.currentLabel,self.currentConfidence)
 
 
