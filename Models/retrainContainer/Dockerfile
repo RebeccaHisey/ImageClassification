@@ -17,6 +17,7 @@ EXPOSE 6006
 
 # Define environment variable
 ENV NAME World
+ENV MODELNAME WatchFinder
 
 # Run app.py when the container launches
 CMD ["python", "app.py"]

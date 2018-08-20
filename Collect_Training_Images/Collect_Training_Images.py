@@ -342,7 +342,7 @@ class Collect_Training_ImagesWidget(ScriptedLoadableModuleWidget):
 
   def onRetrainClicked(self):
     self.infoLabel.setText("Retraining model, this may take up to 30min\nNavigate to localhost:6006 in browser to visualize training")
-    self.logic.retrainClassifier()
+    self.logic.retrainClassifier(self.modelSelector.currentText)
 
 
 #
@@ -429,13 +429,14 @@ class Collect_Training_ImagesLogic(ScriptedLoadableModuleLogic):
     imageMat = vtk.util.numpy_support.vtk_to_numpy(image.GetPointData().GetScalars()).reshape(shape)
     return imageMat
 
-  def retrainClassifier(self):
+  def retrainClassifier(self,modelName):
     logging.info("creating docker container")
     retrainContainerPath = slicer.modules.collect_training_images.path
     retrainContainerPath = retrainContainerPath.replace("Collect_Training_Images/Collect_Training_Images.py","Models/retrainContainer")
     volumeflag = "-v=" + retrainContainerPath + ":/app"
+    modelNameFlag = '"MODELNAME=' + modelName + '"'
     cmd = ["C:/Program Files/Docker/Docker/resources/bin/docker.exe", "create", "--name", "retrain",
-           volumeflag, "-p", "80:5000", "-p","6006:6006","retrainimage"]
+           volumeflag, "-e", modelNameFlag, "-p", "80:5000", "-p","6006:6006","retrainimage"]
     p = subprocess.Popen(cmd, stdin=subprocess.PIPE, shell=True)
     logging.info("starting docker container")
     p.communicate()

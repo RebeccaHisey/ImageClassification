@@ -13,9 +13,14 @@ import tensorflow as tf
 import logging
 
 def main():
-	cmd = ["python","retrain.py","--image_dir=./WatchFinder/training_photos","--output_graph","./WatchFinder/trained_model/output_graph.pb","--output_labels",
-		   "./WatchFinder/trained_model/output_labels.txt","--summaries_dir","./WatchFinder/trained_model/retrain_logs","--bottleneck_dir","./WatchFinder/trained_model/bottleneck","--saved_model_dir",
-		   "./WatchFinder/trained_model"]
+	trainingPhotoDirectory = "--image_dir=./" + os.environ['MODELNAME'] + "/training_photos"
+	outputGraph = "--output_graph=./" + os.environ['MODELNAME'] + "/trained_model/output_graph.pb"
+	outputLabels = "--output_labels=./" + os.environ['MODELNAME'] + "/trained_model/output_labels.txt"
+	summariesDirectory = "--summaries_dir=./" + os.environ['MODELNAME'] + "/trained_model/retrain_logs"
+	bottleneckDirectory = "--bottleneck_dir=./" + os.environ['MODELNAME'] + "/trained_model/bottleneck"
+	savedModelDirectory = "--saved_model_dir=./" + os.environ['MODELNAME'] + "/trained_model"
+
+	cmd = ["python","retrain.py",trainingPhotoDirectory,outputGraph,outputLabels,summariesDirectory,bottleneckDirectory,savedModelDirectory]
 	p = subprocess.Popen(cmd,stdin = subprocess.PIPE, shell=False)
 	p.communicate()
 	#while p.poll() is None:
