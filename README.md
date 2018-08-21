@@ -30,7 +30,7 @@
   - Execute the following command:
     - tensorboard --logdir \<Path to retrainContainer\>/\<Model_Name\>/trained_model/retrain_logs
   - Navigate in browser to \<host_name\>:6006
-9. Copy trained_model folder from retrainContainer directory to classifierContainer directory
+9. Copy output_graph.pb and output_labels.txt from retrainContainer directory to classifierContainer/trained_model/\<Model name\> directory
 10. Build Classifier Container
 - Open command prompt
 - Build container using the following command:
