@@ -177,7 +177,7 @@ class CNN_Image_ClassifierWidget(ScriptedLoadableModuleWidget):
 
   def onApplyButton(self):
     if self.applyButton.text == "Start":
-      self.logic.run(self.objectTable,self.confidenceSlider)
+      self.logic.run(self.objectTable,self.confidenceSlider,self.modelSelector.currentText)
       self.applyButton.setText("Stop")
     else:
       self.logic.stopClassifier()
@@ -203,7 +203,8 @@ class CNN_Image_ClassifierWidget(ScriptedLoadableModuleWidget):
 
 class CNN_Image_ClassifierLogic(ScriptedLoadableModuleLogic):
 
-  def run(self,objectTable,confidenceSlider):
+  def run(self,objectTable,confidenceSlider,modelName):
+    self.modelName = modelName
     self.runWithWidget = True
     self.objectTable = objectTable
     self.numObjects = self.objectTable.rowCount
@@ -236,6 +237,7 @@ class CNN_Image_ClassifierLogic(ScriptedLoadableModuleLogic):
     self.webcamObserver = self.webcamReference.AddObserver(slicer.vtkMRMLVolumeNode.ImageDataModifiedEvent,self.onWebcamImageModified)
 
   def runWithoutWidget(self,modelName):
+    self.modelName = modelName
     self.runWithWidget = False
     self.classifierContainerStarted = False
     self.createClassifierContainer()
@@ -255,8 +257,9 @@ class CNN_Image_ClassifierLogic(ScriptedLoadableModuleLogic):
     self.classifierContainerPath = classifierContainerPath.replace("Collect_Training_Images/Collect_Training_Images.py",
                                                                    "Models/classifierContainer")
     volumeflag = "-v=" + self.classifierContainerPath.replace("C:", "/c") + ":/app:rw"
+    modelNameFlag = "MODELNAME=" + self.modelName
     cmd = ["C:/Program Files/Docker/Docker/resources/bin/docker.exe", "create", "--name", "classify",
-           volumeflag, "-p", "80:5000", "classifierimage"]
+           volumeflag, "-e", modelNameFlag, "-p", "80:5000", "classifierimage"]
     p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
     p.communicate()
     cmd = ["C:/Program Files/Docker/Docker/resources/bin/docker.exe", "start", "classify"]
