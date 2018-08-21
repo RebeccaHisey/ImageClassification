@@ -289,6 +289,8 @@ class Collect_Training_ImagesWidget(ScriptedLoadableModuleWidget):
       os.mkdir(modelPath)
       os.mkdir(os.path.join(modelPath,"training_photos"))
       os.mkdir(os.path.join(modelPath,"trained_model"))
+      classifierPath = os.path.join(self.moduleDir,os.pardir,"Models/classifierContainer",self.currentModelName)
+      os.mkdir(classifierPath)
       self.modelSelector.addItems([self.currentModelName])
       modelIndex = self.modelSelector.findText(self.currentModelName)
       self.modelSelector.currentIndex = modelIndex
@@ -434,14 +436,18 @@ class Collect_Training_ImagesLogic(ScriptedLoadableModuleLogic):
     retrainContainerPath = slicer.modules.collect_training_images.path
     retrainContainerPath = retrainContainerPath.replace("Collect_Training_Images/Collect_Training_Images.py","Models/retrainContainer")
     volumeflag = "-v=" + retrainContainerPath + ":/app"
-    modelNameFlag = '"MODELNAME=' + modelName + '"'
-    cmd = ["C:/Program Files/Docker/Docker/resources/bin/docker.exe", "create", "--name", "retrain",
+    modelNameFlag = str("MODELNAME=" + modelName)
+    logging.info(modelNameFlag)
+    cmd = ["C:/Program Files/Docker/Docker/resources/bin/docker.exe", "run", "-i", "--name", "retrain", "--rm",
            volumeflag, "-e", modelNameFlag, "-p", "80:5000", "-p","6006:6006","retrainimage"]
-    p = subprocess.Popen(cmd, stdin=subprocess.PIPE, shell=True)
+    p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout = subprocess.PIPE, stderr=subprocess.PIPE,shell=True)
     logging.info("starting docker container")
     p.communicate()
-    cmd = ["C:/Program Files/Docker/Docker/resources/bin/docker.exe", "start", "-i", "retrain"]
-    q = subprocess.call(cmd, stdin=subprocess.PIPE, shell=True)
+    #logging.info(error)
+    #cmd = ["C:/Program Files/Docker/Docker/resources/bin/docker.exe", "start", "-i", "retrain"]
+    #q = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout = subprocess.PIPE, stderr=subprocess.PIPE,shell=True)
+    #[output,error] = q.communicate()
+
 
 
 
