@@ -289,7 +289,7 @@ class Collect_Training_ImagesWidget(ScriptedLoadableModuleWidget):
       os.mkdir(modelPath)
       os.mkdir(os.path.join(modelPath,"training_photos"))
       os.mkdir(os.path.join(modelPath,"trained_model"))
-      classifierPath = os.path.join(self.moduleDir,os.pardir,"Models/classifierContainer",self.currentModelName)
+      classifierPath = os.path.join(self.moduleDir,os.pardir,"Models/classifierContainer/trained_model",self.currentModelName)
       os.mkdir(classifierPath)
       self.modelSelector.addItems([self.currentModelName])
       modelIndex = self.modelSelector.findText(self.currentModelName)
