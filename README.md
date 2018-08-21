@@ -42,7 +42,6 @@
 12. Making changes to classifier container
 - image must be rebuilt when files in classifierContainer folder are changed
 - execute the following commands in a command prompt window
-  - docker container rm classifierContainer
   - docker image ls
   - docker image rm \<ID of classifierimage\>
 - Repeat step 9 to rebuild 
