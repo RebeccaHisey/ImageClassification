@@ -83,8 +83,8 @@ def classify_image(graph,file_name,label_file,input_operation,output_operation):
 
 def main():
 	os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-	model_file = 'trained_model/output_graph.pb'
-	label_file = 'trained_model/output_labels.txt'
+	model_file = 'trained_model/'+os.environ['MODELNAME']+'/output_graph.pb'
+	label_file = 'trained_model/'+os.environ['MODELNAME']+'/output_labels.txt'
 	input_layer = 'Placeholder'
 	output_layer = 'final_result'
 
