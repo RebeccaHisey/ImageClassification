@@ -290,16 +290,17 @@ class Collect_Training_ImagesWidget(ScriptedLoadableModuleWidget):
       os.mkdir(os.path.join(modelPath,"training_photos"))
       os.mkdir(os.path.join(modelPath,"trained_model"))
       classifierPath = os.path.join(self.moduleDir,os.pardir,"Models/classifierContainer/trained_model",self.currentModelName)
-      os.mkdir(classifierPath)
+      os.makedirs(classifierPath)
       self.modelSelector.addItems([self.currentModelName])
       modelIndex = self.modelSelector.findText(self.currentModelName)
       self.modelSelector.currentIndex = modelIndex
       self.createNewModelWidget.hide()
       self.modelNameLineEdit.setText("Model Name")
-      self.errorLabel.setText("A model with the name " + self.currentModelName + " already exists")
+      self.errorLabel.setText("")
     except WindowsError:
       self.modelNameLineEdit.setText("Model Name")
-      self.errorLabel.setText("")
+      self.errorLabel.setText("A model with the name " + self.currentModelName + " already exists")
+
 
   def onNewImageClassAdded(self):
     self.currentImageClassName = self.imageClassNameLineEdit.text
