@@ -85,6 +85,53 @@ class Collect_Training_ImagesWidget(ScriptedLoadableModuleWidget):
     parametersFormLayout.addRow(self.imageClassComboBox)
 
     #
+    # Flip Left/Right Checkbox
+    #
+    self.flipCheckbox = qt.QCheckBox("Flip")
+    self.flipCheckbox.toolTip = "Flip Left/Right Checkbox"
+    self.flipCheckbox.setChecked(False)
+    parametersFormLayout.addRow(self.flipCheckbox)
+
+    #
+    # Random Brightness Slider
+    #
+    self.randomBrightnessSlider = qt.QSlider(0x1) #horizontal slider
+    self.randomBrightnessSlider.setRange(0,100)
+    self.randomBrightnessSlider.setTickInterval(5)
+    self.randomBrightnessSlider.setTickPosition(2) #Ticks appear below slider
+    self.randomBrightnessSlider.setSliderPosition(80)
+    self.randomBrightnessSlider.setToolTip("Random Brightness Slider")
+    parametersFormLayout.addRow("Brightness:", self.randomBrightnessSlider)
+    self.brightnessLabel = qt.QLabel("80%")
+    parametersFormLayout.addRow(self.brightnessLabel)
+
+    #
+    # Random Crop Slider
+    #
+    self.randomCropSlider = qt.QSlider(0x1)  # horizontal slider
+    self.randomCropSlider.setRange(0, 100)
+    self.randomCropSlider.setTickInterval(5)
+    self.randomCropSlider.setTickPosition(2)  # Ticks appear below slider
+    self.randomCropSlider.setSliderPosition(80)
+    self.randomCropSlider.setToolTip("Random Crop Slider")
+    parametersFormLayout.addRow("Crop:", self.randomCropSlider)
+    self.cropLabel = qt.QLabel("80%")
+    parametersFormLayout.addRow(self.cropLabel)
+
+    #
+    # Random Scale Slider
+    #
+    self.randomScaleSlider = qt.QSlider(0x1)  # horizontal slider
+    self.randomScaleSlider.setRange(0, 100)
+    self.randomScaleSlider.setTickInterval(5)
+    self.randomScaleSlider.setTickPosition(2)  # Ticks appear below slider
+    self.randomScaleSlider.setSliderPosition(80)
+    self.randomScaleSlider.setToolTip("Random Scale Slider")
+    parametersFormLayout.addRow("Scale:", self.randomScaleSlider)
+    self.scaleLabel = qt.QLabel("80%")
+    parametersFormLayout.addRow(self.scaleLabel)
+
+    #
     # Start/Stop Image Collection Button
     #
     self.startStopCollectingImagesButton = qt.QPushButton("Start Image Collection")
@@ -103,11 +150,16 @@ class Collect_Training_ImagesWidget(ScriptedLoadableModuleWidget):
     self.infoLabel = qt.QLabel("")
     parametersFormLayout.addRow(self.infoLabel)
 
+
     # connections
     self.modelSelector.connect('currentIndexChanged(int)',self.onModelSelected)
     self.startStopCollectingImagesButton.connect('clicked(bool)', self.onStartStopCollectingImagesButton)
     self.retrainClassifierButton.connect('clicked(bool)',self.onRetrainClicked)
     self.imageClassComboBox.connect('currentIndexChanged(int)',self.onImageClassSelected)
+    self.flipCheckbox.stateChanged.connect(self.onFilpCheckbox)
+    self.randomBrightnessSlider.connect('sliderMoved(int)', self.onBrightnessValueChanged)
+    self.randomCropSlider.connect('sliderMoved(int)', self.onCropValueChanged)
+    self.randomScaleSlider.connect('sliderMoved(int)', self.onScaleValueChanged)
 
     # Add vertical spacer
     self.layout.addStretch(1)
@@ -301,7 +353,6 @@ class Collect_Training_ImagesWidget(ScriptedLoadableModuleWidget):
       self.modelNameLineEdit.setText("Model Name")
       self.errorLabel.setText("A model with the name " + self.currentModelName + " already exists")
 
-
   def onNewImageClassAdded(self):
     self.currentImageClassName = self.imageClassNameLineEdit.text
     try:
@@ -332,7 +383,6 @@ class Collect_Training_ImagesWidget(ScriptedLoadableModuleWidget):
   def onSelect(self):
     self.startStopCollectingImagesButton.enabled =  self.imageClassComboBox.currentText!= "Select image class" and self.imageClassComboBox.currentText!= "Create new image class"
 
-
   def onStartStopCollectingImagesButton(self):
 
     if self.startStopCollectingImagesButton.text == "Start Image Collection":
@@ -346,6 +396,21 @@ class Collect_Training_ImagesWidget(ScriptedLoadableModuleWidget):
   def onRetrainClicked(self):
     self.infoLabel.setText("Retraining model, this may take up to 30min\nNavigate to localhost:6006 in browser to visualize training")
     self.logic.retrainClassifier(self.modelSelector.currentText)
+
+  def onFilpCheckbox(self):
+      if self.flipCheckbox.isChecked():
+          print('Checked')
+      else:
+          print('Unchecked')
+
+  def onBrightnessValueChanged(self):
+      self.brightnessLabel.text = str(self.randomBrightnessSlider.sliderPosition) + "%"
+
+  def onCropValueChanged(self):
+      self.cropLabel.text = str(self.randomCropSlider.sliderPosition) + "%"
+
+  def onScaleValueChanged(self):
+      self.scaleLabel.text = str(self.randomScaleSlider.sliderPosition) + "%"
 
 
 #
