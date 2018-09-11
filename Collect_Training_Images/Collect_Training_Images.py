@@ -393,25 +393,38 @@ class Collect_Training_ImagesWidget(ScriptedLoadableModuleWidget):
       self.startStopCollectingImagesButton.setText("Start Image Collection")
     self.logic.startImageCollection(self.collectingImages, self.currentImageClassName,self.currentImageClassFilePath)
 
-  def onRetrainClicked(self):
-    self.infoLabel.setText("Retraining model, this may take up to 30min\nNavigate to localhost:6006 in browser to visualize training")
-    self.logic.retrainClassifier(self.modelSelector.currentText)
-
   def onFilpCheckbox(self):
       if self.flipCheckbox.isChecked():
-          print('Checked')
+        # self.checked = 1
+        print('Checked')
       else:
-          print('Unchecked')
+        # self.checked = 0
+        print('Unchecked')
 
   def onBrightnessValueChanged(self):
-      self.brightnessLabel.text = str(self.randomBrightnessSlider.sliderPosition) + "%"
+    self.brightnessLabel.text = str(self.randomBrightnessSlider.sliderPosition) + "%"
 
   def onCropValueChanged(self):
-      self.cropLabel.text = str(self.randomCropSlider.sliderPosition) + "%"
+    self.cropLabel.text = str(self.randomCropSlider.sliderPosition) + "%"
 
   def onScaleValueChanged(self):
-      self.scaleLabel.text = str(self.randomScaleSlider.sliderPosition) + "%"
+    self.scaleLabel.text = str(self.randomScaleSlider.sliderPosition) + "%"
 
+  def onRetrainClicked(self):
+    self.infoLabel.setText("Retraining model, this may take up to 30min\nNavigate to localhost:6006 in browser to visualize training")
+    self.brightness = float(self.randomBrightnessSlider.sliderPosition) / 100
+    # print("brightness:", self.brightness)
+    self.crop = float(self.randomCropSlider.sliderPosition) / 100
+    # print("crop:", self.crop)
+    self.scale = float(self.randomScaleSlider.sliderPosition) / 100
+    # print("scale:", self.scale)
+    if self.flipCheckbox.isChecked():
+      self.checked = 1
+      # print('Checked', self.checked)
+    else:
+      self.checked = 0
+      # print('Unchecked', self.checked)
+    self.logic.retrainClassifier(self.modelSelector.currentText, self.brightness, self.crop, self.scale, self.checked)
 
 #
 # Collect_Training_ImagesLogic
@@ -497,19 +510,34 @@ class Collect_Training_ImagesLogic(ScriptedLoadableModuleLogic):
     imageMat = vtk.util.numpy_support.vtk_to_numpy(image.GetPointData().GetScalars()).reshape(shape)
     return imageMat
 
-  def retrainClassifier(self,modelName):
+  def retrainClassifier(self, modelName, brightness, crop, scale, flip):
     logging.info("creating docker container")
     retrainContainerPath = slicer.modules.collect_training_images.path
     retrainContainerPath = retrainContainerPath.replace("Collect_Training_Images/Collect_Training_Images.py","Models/retrainContainer")
     volumeflag = "-v=" + retrainContainerPath + ":/app"
+
+    # add 4 flags
     modelNameFlag = str("MODELNAME=" + modelName)
-    logging.info(modelNameFlag)
+    brightnessFlag = "BRIGHTNESS=" + str(brightness)
+    cropFlag = "CROP=" + str(crop)
+    scaleFlag = "SCALE=" + str(scale)
+    flipFlag = "FLIP=" + str(flip)
+
+    # add more -e
     cmd = ["C:/Program Files/Docker/Docker/resources/bin/docker.exe", "run", "-i", "--name", "retrain", "--rm",
-           volumeflag, "-e", modelNameFlag, "-p", "80:5000", "-p","6006:6006","retrainimage"]
+           volumeflag, "-e", modelNameFlag, "-e", brightnessFlag, "-e", cropFlag, "-e", scaleFlag, "-e", flipFlag, "-p", "80:5000", "-p","6006:6006","retrainimage"]
+
+    # logging.info(modelNameFlag)
+    # logging.info(brightnessFlag)
+    # logging.info(cropFlag)
+    # logging.info(scaleFlag)
+    # logging.info(flipFlag)
+
     p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout = subprocess.PIPE, stderr=subprocess.PIPE,shell=True)
     logging.info("starting docker container")
-    p.communicate()
-    #logging.info(error)
+    [output,error] = p.communicate()
+    logging.info(error)
+    logging.info(output)
     #cmd = ["C:/Program Files/Docker/Docker/resources/bin/docker.exe", "start", "-i", "retrain"]
     #q = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout = subprocess.PIPE, stderr=subprocess.PIPE,shell=True)
     #[output,error] = q.communicate()

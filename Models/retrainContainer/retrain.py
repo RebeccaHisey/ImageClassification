@@ -131,6 +131,7 @@ import sys
 import numpy as np
 import tensorflow as tf
 import tensorflow_hub as hub
+# import ast
 
 FLAGS = None
 
@@ -1287,10 +1288,18 @@ if __name__ == '__main__':
       """,
       action='store_true'
   )
+  # parser.add_argument(
+  #     '--non-flip_left_right',
+  #     default=True,
+  #     help="""\
+  #     Whether to randomly flip half of the training images horizontally.\
+  #     """,
+  #     action='store_false'
+  # )
   parser.add_argument(
       '--random_crop',
-      type=int,
-      default=0,
+      type=float,
+      default=0.0,
       help="""\
       A percentage determining how much of a margin to randomly crop off the
       training images.\
@@ -1298,8 +1307,8 @@ if __name__ == '__main__':
   )
   parser.add_argument(
       '--random_scale',
-      type=int,
-      default=0,
+      type=float,
+      default=0.0,
       help="""\
       A percentage determining how much to randomly scale up the size of the
       training images by.\
@@ -1307,8 +1316,8 @@ if __name__ == '__main__':
   )
   parser.add_argument(
       '--random_brightness',
-      type=int,
-      default=0,
+      type=float,
+      default=0.0,
       help="""\
       A percentage determining how much to randomly multiply the training image
       input pixels up or down by.\

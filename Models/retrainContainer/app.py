@@ -20,7 +20,16 @@ def main():
 	bottleneckDirectory = "--bottleneck_dir=./" + os.environ['MODELNAME'] + "/trained_model/bottleneck"
 	savedModelDirectory = "--saved_model_dir=./" + os.environ['MODELNAME'] + "/trained_model"
 
-	cmd = ["python","retrain.py",trainingPhotoDirectory,outputGraph,outputLabels,summariesDirectory,bottleneckDirectory,savedModelDirectory]
+	brightness = "--random_brightness=" + os.environ['BRIGHTNESS']
+	print(brightness)
+	crop = "--random_crop=" + os.environ['CROP']
+	print(crop)
+	scale = "--random_scale=" + os.environ['SCALE']
+	print(scale)
+	flip = "--flip_left_right=" + os.environ['FLIP']
+	print(flip)
+
+	cmd = ["python","retrain.py",trainingPhotoDirectory,outputGraph,outputLabels,summariesDirectory,bottleneckDirectory,savedModelDirectory,brightness,crop,scale,flip]
 	p = subprocess.Popen(cmd,stdin = subprocess.PIPE, shell=False)
 	p.communicate()
 	#while p.poll() is None:
