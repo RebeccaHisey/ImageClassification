@@ -26,10 +26,15 @@ def main():
 	print(crop)
 	scale = "--random_scale=" + os.environ['SCALE']
 	print(scale)
-	flip = "--flip_left_right=" + os.environ['FLIP']
-	print(flip)
+	# flip = "--flip_left_right=" + os.environ['FLIP']
+	# print(flip)
 
-	cmd = ["python","retrain.py",trainingPhotoDirectory,outputGraph,outputLabels,summariesDirectory,bottleneckDirectory,savedModelDirectory,brightness,crop,scale,flip]
+	if os.environ['FLIP'] == "True":
+		flip = "--flip_left_right"
+		cmd = ["python","retrain.py",trainingPhotoDirectory,outputGraph,outputLabels,summariesDirectory,bottleneckDirectory,savedModelDirectory,brightness,crop,scale,flip]
+	else:
+		cmd = ["python","retrain.py",trainingPhotoDirectory,outputGraph,outputLabels,summariesDirectory,bottleneckDirectory,savedModelDirectory,brightness,crop,scale]
+
 	p = subprocess.Popen(cmd,stdin = subprocess.PIPE, shell=False)
 	p.communicate()
 	#while p.poll() is None:

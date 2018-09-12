@@ -413,17 +413,18 @@ class Collect_Training_ImagesWidget(ScriptedLoadableModuleWidget):
   def onRetrainClicked(self):
     self.infoLabel.setText("Retraining model, this may take up to 30min\nNavigate to localhost:6006 in browser to visualize training")
     self.brightness = float(self.randomBrightnessSlider.sliderPosition) / 100
-    # print("brightness:", self.brightness)
+    print("brightness:", self.brightness)
     self.crop = float(self.randomCropSlider.sliderPosition) / 100
-    # print("crop:", self.crop)
+    print("crop:", self.crop)
     self.scale = float(self.randomScaleSlider.sliderPosition) / 100
-    # print("scale:", self.scale)
+    print("scale:", self.scale)
     if self.flipCheckbox.isChecked():
-      self.checked = 1
-      # print('Checked', self.checked)
+      self.checked = True
+      print('Checked', self.checked)
     else:
-      self.checked = 0
-      # print('Unchecked', self.checked)
+      self.checked = False
+      print('Unchecked', self.checked)
+
     self.logic.retrainClassifier(self.modelSelector.currentText, self.brightness, self.crop, self.scale, self.checked)
 
 #
@@ -527,22 +528,22 @@ class Collect_Training_ImagesLogic(ScriptedLoadableModuleLogic):
     cmd = ["C:/Program Files/Docker/Docker/resources/bin/docker.exe", "run", "-i", "--name", "retrain", "--rm",
            volumeflag, "-e", modelNameFlag, "-e", brightnessFlag, "-e", cropFlag, "-e", scaleFlag, "-e", flipFlag, "-p", "80:5000", "-p","6006:6006","retrainimage"]
 
-    # logging.info(modelNameFlag)
-    # logging.info(brightnessFlag)
-    # logging.info(cropFlag)
-    # logging.info(scaleFlag)
-    # logging.info(flipFlag)
+    logging.info(modelNameFlag)
+    logging.info(brightnessFlag)
+    logging.info(cropFlag)
+    logging.info(scaleFlag)
+    logging.info(flipFlag)
 
     p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout = subprocess.PIPE, stderr=subprocess.PIPE,shell=True)
     logging.info("starting docker container")
-    [output,error] = p.communicate()
-    logging.info(error)
-    logging.info(output)
+    p.communicate()
+    #logging.info(error)
+    #logging.info(output)
+
+
     #cmd = ["C:/Program Files/Docker/Docker/resources/bin/docker.exe", "start", "-i", "retrain"]
     #q = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout = subprocess.PIPE, stderr=subprocess.PIPE,shell=True)
     #[output,error] = q.communicate()
-
-
 
 
 
