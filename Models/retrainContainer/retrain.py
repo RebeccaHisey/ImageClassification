@@ -1026,7 +1026,13 @@ def main(_):
          class_count, FLAGS.final_tensor_name, bottleneck_tensor,
          wants_quantization, is_training=True)
 
-  with tf.Session(graph=graph) as sess:
+  # Multi-cores calculation
+  config = tf.ConfigProto(device_count={"CPU": 6},  # limit to num_cpu_core CPU usage
+                          inter_op_parallelism_threads=1,
+                          intra_op_parallelism_threads=1,
+                          log_device_placement=True)
+
+  with tf.Session(graph=graph, config=config) as sess:
     # Initialize all weights: for the module to their pretrained values,
     # and for the newly added retraining layer to random initial values.
     init = tf.global_variables_initializer()
@@ -1201,7 +1207,7 @@ if __name__ == '__main__':
   parser.add_argument(
       '--how_many_training_steps',
       type=int,
-      default=1000,
+      default=30000,
       help='How many training steps to run before ending.'
   )
   parser.add_argument(
@@ -1340,3 +1346,4 @@ if __name__ == '__main__':
       help='Where to save the exported graph.')
   FLAGS, unparsed = parser.parse_known_args()
   tf.app.run(main=main, argv=[sys.argv[0]] + unparsed)
+  print('running...')
