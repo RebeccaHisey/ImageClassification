@@ -71,6 +71,10 @@ class CNN_Image_ClassifierWidget(ScriptedLoadableModuleWidget):
     self.applyButton.enabled = False
     parametersFormLayout.addRow(self.applyButton)
 
+    self.classifyAllFramesButton = qt.QPushButton("Classify all frames")
+    self.classifyAllFramesButton.toolTip = "classify all frames in a sequence"
+    parametersFormLayout.addRow(self.classifyAllFramesButton)
+
     #
     # Object table
     #
@@ -98,8 +102,15 @@ class CNN_Image_ClassifierWidget(ScriptedLoadableModuleWidget):
     self.confidenceLabel = qt.QLabel("80%")
     confidenceFormLayout.addRow(self.confidenceLabel)
 
+    self.recordingPlayWidget = slicer.qMRMLSequenceBrowserPlayWidget()
+    parametersFormLayout.addRow(self.recordingPlayWidget)
+
+    self.recordingSeekWidget = slicer.qMRMLSequenceBrowserSeekWidget()
+    parametersFormLayout.addRow(self.recordingSeekWidget)
+
     # connections
     self.applyButton.connect('clicked(bool)', self.onApplyButton)
+    self.classifyAllFramesButton.connect('clicked(bool)', self.onClassifyAllFramesClicked)
     self.modelSelector.connect('currentIndexChanged(int)',self.onModelSelected)
     self.confidenceSlider.connect('sliderMoved(int)',self.onConfidenceChanged)
 
@@ -108,9 +119,10 @@ class CNN_Image_ClassifierWidget(ScriptedLoadableModuleWidget):
 
     # Refresh Apply button state
     self.onSelect()
-
-    self.webcamReference = slicer.util.getNode('Webcam_Reference')
-    if not self.webcamReference:
+    try:
+        self.webcamReference = slicer.util.getNode('Webcam_Reference')
+    except slicer.util.MRMLNodeNotFoundException:
+    #if not self.webcamReference:
       imageSpacing = [0.2, 0.2, 0.2]
       imageData = vtk.vtkImageData()
       imageData.SetDimensions(640, 480, 1)
@@ -134,12 +146,19 @@ class CNN_Image_ClassifierWidget(ScriptedLoadableModuleWidget):
     self.webcamConnectorNode.Start()
     self.setupWebcamResliceDriver()
 
+  def selectRecordingNode(self):
+    sequenceNodes = slicer.mrmlScene.GetNodesByClass('vtkMRMLSequenceBrowserNode')
+    selectedNode = sequenceNodes.GetItemAsObject(0)
+    self.recordingPlayWidget.setMRMLSequenceBrowserNode(selectedNode)
+    self.recordingSeekWidget.setMRMLSequenceBrowserNode(selectedNode)
 
   def createWebcamPlusConnector(self):
-    webcamConnectorNode = slicer.util.getNode('WebcamPlusConnector')
-    if not webcamConnectorNode:
+    try:
+        webcamConnectorNode = slicer.util.getNode('WebcamPlusConnector')
+    except slicer.util.MRMLNodeNotFoundException:
+    #if not webcamConnectorNode:
       webcamConnectorNode = slicer.vtkMRMLIGTLConnectorNode()
-      webcamConnectorNode.SetLogErrorIfServerConnectionFailed(False)
+      #webcamConnectorNode.SetLogErrorIfServerConnectionFailed(False)
       webcamConnectorNode.SetName('WebcamPlusConnector')
       slicer.mrmlScene.AddNode(webcamConnectorNode)
       # hostNamePort = self.parameterNode.GetParameter('PlusWebcamServerHostNamePort')
@@ -182,6 +201,10 @@ class CNN_Image_ClassifierWidget(ScriptedLoadableModuleWidget):
     else:
       self.logic.stopClassifier()
       self.applyButton.setText("Start")
+
+  def onClassifyAllFramesClicked(self):
+      self.selectRecordingNode()
+      self.logic.classifyAllFrames(self.modelSelector.currentText)
 
   def onModelSelected(self):
     if self.modelSelector.currentText != "Select model":
@@ -240,7 +263,7 @@ class CNN_Image_ClassifierLogic(ScriptedLoadableModuleLogic):
     self.modelName = modelName
     self.runWithWidget = False
     self.classifierContainerStarted = False
-    self.createClassifierContainer()
+
     self.currentLabel = ""
     self.lastUpdateSec = 0
     self.webcamReference = slicer.util.getNode('Webcam_Reference')
@@ -249,8 +272,7 @@ class CNN_Image_ClassifierLogic(ScriptedLoadableModuleLogic):
     modelObjectClasses = os.listdir(os.path.join(self.currentModelDirectory, "training_photos"))
     self.currentObjectClasses = [dir for dir in modelObjectClasses if dir.find(".") == -1]
     self.numObjects = len(self.currentObjectClasses)
-
-
+    self.createClassifierContainer()
 
   def createClassifierContainer(self):
     classifierContainerPath = slicer.modules.collect_training_images.path
@@ -258,10 +280,13 @@ class CNN_Image_ClassifierLogic(ScriptedLoadableModuleLogic):
                                                                    "Models/classifierContainer")
     volumeflag = "-v=" + self.classifierContainerPath.replace("C:", "/c") + ":/app:rw"
     modelNameFlag = "MODELNAME=" + self.modelName
+    numclassesFlag = "NUMCLASSES=" + str(self.numObjects)
     cmd = ["C:/Program Files/Docker/Docker/resources/bin/docker.exe", "create", "--name", "classify",
-           volumeflag, "-e", modelNameFlag, "-p", "80:5000", "classifierimage"]
+           volumeflag, "-e",modelNameFlag, "-e",numclassesFlag,"-p", "80:5000", "classifierimage"]
     p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
-    p.communicate()
+    [output,error] = p.communicate()
+    logging.info(output)
+    logging.info(error)
     cmd = ["C:/Program Files/Docker/Docker/resources/bin/docker.exe", "start", "classify"]
     p = subprocess.call(cmd, stdin=subprocess.PIPE, shell=True)
     time.sleep(1.5)
@@ -280,8 +305,56 @@ class CNN_Image_ClassifierLogic(ScriptedLoadableModuleLogic):
     return imageMat
 
   def onWebcamImageModified(self,caller, eventID):
-    if time.time() - self.lastUpdateSec > 0.7:
+    if time.time() - self.lastUpdateSec > 0.5:
       self.classifyImage()
+
+  def classifyAllFrames(self,modelName):
+    self.runWithoutWidget(modelName)
+    playWidget = slicer.util.mainWindow().findChildren("qMRMLSequenceBrowserPlayWidget")
+    playWidgetButtons = playWidget[0].findChildren('QPushButton')
+    playWidgetButtons[0].click() #Move to first frame
+    seekWidget = slicer.util.mainWindow().findChildren("qMRMLSequenceBrowserSeekWidget")
+    seekWidget = seekWidget[0]
+    self.totalNumFrames = seekWidget.slider_IndexValue.maximum
+    for i in range (self.totalNumFrames):
+        self.classifyImage()
+        confidenceAndLabel = list(self.confidences)
+        if self.currentLabel == 'anesthetic\n':
+            confidenceAndLabel.append(1)
+        elif self.currentLabel == 'syringe\n':
+            confidenceAndLabel.append(2)
+        elif self.currentLabel == 'guidewire_casing\n':
+            confidenceAndLabel.append(3)
+        elif self.currentLabel == 'scalpel\n':
+            confidenceAndLabel.append(4)
+        elif self.currentLabel == 'dilator\n':
+            confidenceAndLabel.append(5)
+        elif self.currentLabel == 'catheter\n':
+            confidenceAndLabel.append(6)
+        elif self.currentLabel == 'guidewire\n':
+            confidenceAndLabel.append(7)
+        else:
+            confidenceAndLabel.append(0)
+        confidenceAndLabel.append(self.currentLabel)
+        self.writeToCSV(confidenceAndLabel)
+        self.moveToNextFrame()
+    self.stopClassifier()
+
+
+  def moveToNextFrame(self):
+    playWidget = slicer.util.mainWindow().findChildren("qMRMLSequenceBrowserPlayWidget")
+    buttons = playWidget[0].findChildren('QPushButton')
+    buttons[3].click()
+
+  def writeToCSV(self, frameLabels):
+      import csv
+      #mode = 'wb'
+      FileName = "LabeledFrames" + os.extsep + "csv"
+      labeledFramesFilePath = os.path.join(self.moduleDir, FileName)
+      with open(labeledFramesFilePath, 'ab') as csvfile:
+          fileWriter = csv.writer(csvfile)
+          #for frame in range(0, len(frameLabels)):
+          fileWriter.writerow(frameLabels)
 
   def classifyImage(self):
       self.confidences = []
@@ -311,15 +384,20 @@ class CNN_Image_ClassifierLogic(ScriptedLoadableModuleLogic):
       start = time.time()
       if self.classifierContainerStarted == False:
         self.createClassifierContainer()
-      numpy.save(self.classifierContainerPath + '/pictureSize.npy',imgSize)
-      numpy.save(self.classifierContainerPath + '/picture.npy',imDataBGR)
-      fileMod1 = os.path.getmtime(self.classifierContainerPath + '/textLabels.txt')
+      #numpy.save(self.classifierContainerPath + '/pictureSize.npy',imgSize)
+      #numpy.save(self.classifierContainerPath + '/picture.npy',imDataBGR)
+      fileName = "picture.jpg"
+      cv2.imwrite(os.path.join(self.classifierContainerPath, fileName), imDataBGR)
+      self.fileMod1 = os.path.getmtime(self.classifierContainerPath + '/textLabels.txt')
       currentTime = time.time()
-      fileRead = False
+      self.fileRead = False
       fileMod2 = os.path.getmtime(self.classifierContainerPath + '/textLabels.txt')
-      while fileMod2 == fileMod1 and time.time() - start < 5: # Sleep until classifier produces a new image
+      self.checkCompletionStatus()
+      '''
+      while fileMod2 == self.fileMod1 and time.time() - start < 5: # Sleep until classifier produces a new image
           time.sleep(0.2)
           fileMod2 = os.path.getmtime(self.classifierContainerPath + '/textLabels.txt')
+      
       while not fileRead and time.time() - currentTime < 7:
           try:
               fName = self.classifierContainerPath + '/textLabels.txt'
@@ -330,11 +408,36 @@ class CNN_Image_ClassifierLogic(ScriptedLoadableModuleLogic):
               fileRead = True
           except IOError:
               time.sleep(0.05)
+      '''
       end = time.time()
       #logging.info(self.currentLabel + ' ' + self.confidences[0] + " " + self.confidences[1])
+      self.currentLabel = self.currentLabel.strip('\n')
       self.lastUpdateSec = time.time()
       if self.runWithWidget == True:
         self.updateObjectTable()
+
+  def checkCompletionStatus(self):
+      fileMod2 = os.path.getmtime(self.classifierContainerPath + '/textLabels.txt')
+      if self.fileMod1 == fileMod2:
+          qt.QTimer.singleShot(200,self.checkCompletionStatus)
+      self.checkFileRead()
+      return
+
+  def checkFileRead(self):
+      if not self.fileRead:
+          try:
+              fName = self.classifierContainerPath + '/textLabels.txt'
+              with open(fName) as f:
+                  self.currentLabel = f.readline()
+                  for i in range(self.numObjects):
+                      self.confidences.append(f.readline())
+              self.fileRead = True
+          except IOError:
+              qt.QTimer.singleShot(50,self.checkFileRead)
+      return
+
+
+
 
   def stopClassifier(self):
     if self.runWithWidget == True:
@@ -359,10 +462,14 @@ class CNN_Image_ClassifierLogic(ScriptedLoadableModuleLogic):
   def getFoundObject(self):
     self.classifyImage()
     imgClass = 0
-    while imgClass < self.numObjects and self.currentLabel != self.currentObjectClasses[imgClass] + '\n':
+    #logging.info(self.currentObjectClasses)
+    #logging.info(self.currentLabel)
+    while imgClass < self.numObjects and self.currentLabel != self.currentObjectClasses[imgClass]:
       imgClass += 1
-    if self.currentLabel == self.currentObjectClasses[imgClass] + '\n':
+    if imgClass < self.numObjects and self.currentLabel == self.currentObjectClasses[imgClass]:
       self.currentConfidence = self.confidences[imgClass]
+    else:
+        self.currentConfidence = self.confidences[4]
     return (self.currentLabel,self.currentConfidence)
 
 
