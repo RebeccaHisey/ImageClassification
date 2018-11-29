@@ -114,9 +114,10 @@ class Collect_Training_ImagesWidget(ScriptedLoadableModuleWidget):
 
     # Refresh Start/Stop Collecting Images Button state
     self.onSelect()
-
-    self.webcamReference = slicer.util.getNode('Webcam_Reference')
-    if not self.webcamReference:
+    try:
+      self.webcamReference = slicer.util.getNode('Webcam_Reference')
+    except slicer.util.MRMLNodeNotFoundException:
+    #if not self.webcamReference:
       imageSpacing = [0.2, 0.2, 0.2]
       imageData = vtk.vtkImageData()
       imageData.SetDimensions(640, 480, 1)
@@ -141,10 +142,12 @@ class Collect_Training_ImagesWidget(ScriptedLoadableModuleWidget):
     self.setupWebcamResliceDriver()
 
   def createWebcamPlusConnector(self):
-    webcamConnectorNode = slicer.util.getNode('WebcamPlusConnector')
-    if not webcamConnectorNode:
+    try:
+      webcamConnectorNode = slicer.util.getNode('WebcamPlusConnector')
+    except slicer.util.MRMLNodeNotFoundException:
+    #if not webcamConnectorNode:
       webcamConnectorNode = slicer.vtkMRMLIGTLConnectorNode()
-      webcamConnectorNode.SetLogErrorIfServerConnectionFailed(False)
+      #webcamConnectorNode.SetLogErrorIfServerConnectionFailed(False)
       webcamConnectorNode.SetName('WebcamPlusConnector')
       slicer.mrmlScene.AddNode(webcamConnectorNode)
       #hostNamePort = self.parameterNode.GetParameter('PlusWebcamServerHostNamePort')
@@ -438,9 +441,10 @@ class Collect_Training_ImagesLogic(ScriptedLoadableModuleLogic):
     retrainContainerPath = retrainContainerPath.replace("Collect_Training_Images/Collect_Training_Images.py","Models/retrainContainer")
     volumeflag = "-v=" + retrainContainerPath + ":/app"
     modelNameFlag = str("MODELNAME=" + modelName)
+    numTrainingStepsFlag = "NUMTRAININGSTEPS=" + str(50000)
     logging.info(modelNameFlag)
     cmd = ["C:/Program Files/Docker/Docker/resources/bin/docker.exe", "run", "-i", "--name", "retrain", "--rm",
-           volumeflag, "-e", modelNameFlag, "-p", "80:5000", "-p","6006:6006","retrainimage"]
+           volumeflag, "-e", modelNameFlag, "-e", numTrainingStepsFlag, "-p", "80:5000", "-p","6006:6006","retrainimage"]
     p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout = subprocess.PIPE, stderr=subprocess.PIPE,shell=True)
     logging.info("starting docker container")
     p.communicate()
