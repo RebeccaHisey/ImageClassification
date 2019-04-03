@@ -7,6 +7,7 @@ import subprocess
 import numpy
 import time
 
+
 #
 # CNN_Image_Classifier
 #
@@ -146,6 +147,20 @@ class CNN_Image_ClassifierWidget(ScriptedLoadableModuleWidget):
     self.webcamConnectorNode.Start()
     self.setupWebcamResliceDriver()
 
+    self.classifierConnectorNode = self.createClassifierConnector()
+    self.classifierConnectorNode.Start()
+    self.classifierConnectorNode.RegisterOutgoingMRMLNode(self.webcamReference)
+
+    try:
+      self.classifierLabel = slicer.util.getNode('labelConnector')
+    except slicer.util.MRMLNodeNotFoundException:
+      self.classifierLabel = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLTextNode", "labelConnector")
+
+    self.labelConnectorNode = self.createLabelConnector()
+    self.labelConnectorNode.Start()
+    self.labelConnectorNode.RegisterIncomingMRMLNode(self.classifierLabel)
+
+
   def selectRecordingNode(self):
     sequenceNodes = slicer.mrmlScene.GetNodesByClass('vtkMRMLSequenceBrowserNode')
     selectedNode = sequenceNodes.GetItemAsObject(0)
@@ -167,6 +182,38 @@ class CNN_Image_ClassifierWidget(ScriptedLoadableModuleWidget):
       webcamConnectorNode.SetTypeClient(hostName, int(port))
       logging.debug('Webcam PlusConnector Created')
     return webcamConnectorNode
+
+  def createClassifierConnector(self):
+    try:
+        classifierConnectorNode = slicer.util.getNode('ClassifierPlusConnector')
+    except slicer.util.MRMLNodeNotFoundException:
+    #if not webcamConnectorNode:
+      classifierConnectorNode = slicer.vtkMRMLIGTLConnectorNode()
+      #webcamConnectorNode.SetLogErrorIfServerConnectionFailed(False)
+      classifierConnectorNode.SetName('ClassifierPlusConnector')
+      slicer.mrmlScene.AddNode(classifierConnectorNode)
+      # hostNamePort = self.parameterNode.GetParameter('PlusWebcamServerHostNamePort')
+      hostNamePort = "localhost:18946"
+      [hostName, port] = hostNamePort.split(':')
+      classifierConnectorNode.SetTypeServer(int(port))
+      logging.debug('Webcam Classifier Connector Created')
+    return classifierConnectorNode
+
+  def createLabelConnector(self):
+      try:
+          labelConnectorNode = slicer.util.getNode('LabelClassifierPlusConnector')
+      except slicer.util.MRMLNodeNotFoundException:
+          # if not webcamConnectorNode:
+          labelConnectorNode = slicer.vtkMRMLIGTLConnectorNode()
+          # webcamConnectorNode.SetLogErrorIfServerConnectionFailed(False)
+          labelConnectorNode.SetName('LabelClassifierPlusConnector')
+          slicer.mrmlScene.AddNode(labelConnectorNode)
+          # hostNamePort = self.parameterNode.GetParameter('PlusWebcamServerHostNamePort')
+          hostNamePort = "localhost:18947"
+          [hostName, port] = hostNamePort.split(':')
+          labelConnectorNode.SetTypeClient(hostName, int(port))
+          logging.debug('Label Classifier Connector Created')
+      return labelConnectorNode
 
 
   def setupWebcamResliceDriver(self):
@@ -227,13 +274,15 @@ class CNN_Image_ClassifierWidget(ScriptedLoadableModuleWidget):
 class CNN_Image_ClassifierLogic(ScriptedLoadableModuleLogic):
 
   def run(self,objectTable,confidenceSlider,modelName):
+    self.stopClassifierClicked = False
     self.modelName = modelName
     self.runWithWidget = True
     self.objectTable = objectTable
     self.numObjects = self.objectTable.rowCount
     self.confidenceSlider = confidenceSlider
     self.webcamReference = slicer.util.getNode('Webcam_Reference')
-    numpy.set_printoptions(threshold=numpy.nan)
+    self.labelNode = slicer.util.getNode('labelConnector')
+    #numpy.set_printoptions(threshold=numpy.nan)
     try:
 		# the module is in the python path
 	    import cv2
@@ -253,60 +302,30 @@ class CNN_Image_ClassifierLogic(ScriptedLoadableModuleLogic):
 		if not os.path.isfile(cv2Path):
 			cv2Path = cv2File
 		cv2 = imp.load_dynamic('cv2', cv2File)
-    self.classifierContainerStarted = False
-    self.createClassifierContainer()
     self.currentLabel = ""
     self.lastUpdateSec = 0
-    self.webcamObserver = self.webcamReference.AddObserver(slicer.vtkMRMLVolumeNode.ImageDataModifiedEvent,self.onWebcamImageModified)
+    self.labelObserver = self.labelNode.AddObserver(slicer.vtkMRMLTextNode.TextModifiedEvent,self.onLabelModified)
 
   def runWithoutWidget(self,modelName):
     self.modelName = modelName
     self.runWithWidget = False
-    self.classifierContainerStarted = False
-
     self.currentLabel = ""
+    self.confidences = []
     self.lastUpdateSec = 0
-    self.webcamReference = slicer.util.getNode('Webcam_Reference')
+    #self.webcamReference = slicer.util.getNode('Webcam_Reference')
+    try:
+        self.labelNode = slicer.util.getNode('labelConnector')
+    except slicer.util.MRMLNodeNotFoundException:
+        self.labelNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLTextNode","labelConnector")
+    self.labelObserver = self.labelNode.AddObserver(slicer.vtkMRMLTextNode.TextModifiedEvent, self.onLabelModified)
     self.moduleDir = os.path.dirname(slicer.modules.collect_training_images.path)
     self.currentModelDirectory = os.path.join(self.moduleDir, os.pardir, "Models/retrainContainer",modelName)
     modelObjectClasses = os.listdir(os.path.join(self.currentModelDirectory, "training_photos"))
     self.currentObjectClasses = [dir for dir in modelObjectClasses if dir.find(".") == -1]
     self.numObjects = len(self.currentObjectClasses)
-    self.createClassifierContainer()
 
-  def createClassifierContainer(self):
-    classifierContainerPath = slicer.modules.collect_training_images.path
-    self.classifierContainerPath = classifierContainerPath.replace("Collect_Training_Images/Collect_Training_Images.py",
-                                                                   "Models/classifierContainer")
-    volumeflag = "-v=" + self.classifierContainerPath.replace("C:", "/c") + ":/app:rw"
-    modelNameFlag = "MODELNAME=" + self.modelName
-    numclassesFlag = "NUMCLASSES=" + str(self.numObjects)
-    cmd = ["C:/Program Files/Docker/Docker/resources/bin/docker.exe", "create", "--name", "classify",
-           volumeflag, "-e",modelNameFlag, "-e",numclassesFlag,"-p", "80:5000", "classifierimage"]
-    p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
-    [output,error] = p.communicate()
-    logging.info(output)
-    logging.info(error)
-    cmd = ["C:/Program Files/Docker/Docker/resources/bin/docker.exe", "start", "classify"]
-    p = subprocess.call(cmd, stdin=subprocess.PIPE, shell=True)
-    time.sleep(1.5)
-    self.classifierContainerStarted = True
-
-  def getVtkImageDataAsOpenCVMat(self, volumeNodeName):
-    cameraVolume = slicer.util.getNode(volumeNodeName)
-    image = cameraVolume.GetImageData()
-    shape = list(cameraVolume.GetImageData().GetDimensions())
-    shape.reverse()
-    components = image.GetNumberOfScalarComponents()
-    if components > 1:
-      shape.append(components)
-      shape.remove(1)
-    imageMat = vtk.util.numpy_support.vtk_to_numpy(image.GetPointData().GetScalars()).reshape(shape)
-    return imageMat
-
-  def onWebcamImageModified(self,caller, eventID):
-    if time.time() - self.lastUpdateSec > 0.5:
-      self.classifyImage()
+  def onLabelModified(self, caller, eventID):
+      [self.currentLabel, self.confidences, self.currentConfidence] = self.getFoundObject()
 
   def classifyAllFrames(self,modelName):
     self.runWithoutWidget(modelName)
@@ -317,7 +336,7 @@ class CNN_Image_ClassifierLogic(ScriptedLoadableModuleLogic):
     seekWidget = seekWidget[0]
     self.totalNumFrames = seekWidget.slider_IndexValue.maximum
     for i in range (self.totalNumFrames):
-        self.classifyImage()
+        #self.classifyImage()
         confidenceAndLabel = list(self.confidences)
         if self.currentLabel == 'anesthetic\n':
             confidenceAndLabel.append(1)
@@ -340,7 +359,6 @@ class CNN_Image_ClassifierLogic(ScriptedLoadableModuleLogic):
         self.moveToNextFrame()
     self.stopClassifier()
 
-
   def moveToNextFrame(self):
     playWidget = slicer.util.mainWindow().findChildren("qMRMLSequenceBrowserPlayWidget")
     buttons = playWidget[0].findChildren('QPushButton')
@@ -356,102 +374,14 @@ class CNN_Image_ClassifierLogic(ScriptedLoadableModuleLogic):
           #for frame in range(0, len(frameLabels)):
           fileWriter.writerow(frameLabels)
 
-  def classifyImage(self):
-      self.confidences = []
-      try:
-        # the module is in the python path
-        import cv2
-      except ImportError:
-        # for the build directory, load from the file
-        import imp, platform
-        if platform.system() == 'Windows':
-          cv2File = 'cv2.pyd'
-          cv2Path = '../../../../OpenCV-build/lib/Release/' + cv2File
-        else:
-          cv2File = 'cv2.so'
-          cv2Path = '../../../../OpenCV-build/lib/' + cv2File
-        scriptPath = os.path.dirname(os.path.abspath(__file__))
-        cv2Path = os.path.abspath(os.path.join(scriptPath, cv2Path))
-        # in the build directory, this path should exist, but in the installed extension
-        # it should be in the python pat, so only use the short file name
-        if not os.path.isfile(cv2Path):
-          cv2Path = cv2File
-        cv2 = imp.load_dynamic('cv2', cv2File)
-      imdata = self.getVtkImageDataAsOpenCVMat('Webcam_Reference')
-      imDataBGR = cv2.cvtColor(imdata, cv2.COLOR_RGB2BGR)
-      imgSize = imDataBGR.shape
-      imgSize = numpy.array(imgSize)
-      start = time.time()
-      if self.classifierContainerStarted == False:
-        self.createClassifierContainer()
-      #numpy.save(self.classifierContainerPath + '/pictureSize.npy',imgSize)
-      #numpy.save(self.classifierContainerPath + '/picture.npy',imDataBGR)
-      fileName = "picture.jpg"
-      cv2.imwrite(os.path.join(self.classifierContainerPath, fileName), imDataBGR)
-      self.fileMod1 = os.path.getmtime(self.classifierContainerPath + '/textLabels.txt')
-      currentTime = time.time()
-      self.fileRead = False
-      fileMod2 = os.path.getmtime(self.classifierContainerPath + '/textLabels.txt')
-      self.checkCompletionStatus()
-      '''
-      while fileMod2 == self.fileMod1 and time.time() - start < 5: # Sleep until classifier produces a new image
-          time.sleep(0.2)
-          fileMod2 = os.path.getmtime(self.classifierContainerPath + '/textLabels.txt')
-      
-      while not fileRead and time.time() - currentTime < 7:
-          try:
-              fName = self.classifierContainerPath + '/textLabels.txt'
-              with open(fName) as f:
-                  self.currentLabel = f.readline()
-                  for i in range(self.numObjects):
-                    self.confidences.append(f.readline())
-              fileRead = True
-          except IOError:
-              time.sleep(0.05)
-      '''
-      end = time.time()
-      #logging.info(self.currentLabel + ' ' + self.confidences[0] + " " + self.confidences[1])
-      self.currentLabel = self.currentLabel.strip('\n')
-      self.lastUpdateSec = time.time()
-      if self.runWithWidget == True:
-        self.updateObjectTable()
-
-  def checkCompletionStatus(self):
-      fileMod2 = os.path.getmtime(self.classifierContainerPath + '/textLabels.txt')
-      if self.fileMod1 == fileMod2:
-          qt.QTimer.singleShot(200,self.checkCompletionStatus)
-      self.checkFileRead()
-      return
-
-  def checkFileRead(self):
-      if not self.fileRead:
-          try:
-              fName = self.classifierContainerPath + '/textLabels.txt'
-              with open(fName) as f:
-                  self.currentLabel = f.readline()
-                  for i in range(self.numObjects):
-                      self.confidences.append(f.readline())
-              self.fileRead = True
-          except IOError:
-              qt.QTimer.singleShot(50,self.checkFileRead)
-      return
-
-
-
-
   def stopClassifier(self):
-    if self.runWithWidget == True:
-      self.webcamReference.RemoveObserver(self.webcamObserver)
-      self.webcamObserver = None
-    cmd = ["C:/Program Files/Docker/Docker/resources/bin/docker.exe", "container", "stop", "classify"]
-    p = subprocess.call(cmd, shell=True)
-    cmd = ["C:/Program Files/Docker/Docker/resources/bin/docker.exe", "container", "rm", "classify"]
-    p = subprocess.call(cmd, shell=True)
-    self.classifierContainerStarted = False
+    self.stopClassifierClicked = True
+    self.labelNode.RemoveObserver(self.labelObserver)
+    self.labelObserver = None
 
   def updateObjectTable(self):
     for i in range(self.numObjects):
-      if self.currentLabel == str(self.objectTable.item(i,0).text() + "\n") and float(self.confidences[i]) > self.confidenceSlider.value/100.0:
+      if self.currentLabel == str(self.objectTable.item(i,0).text()) and float(self.confidences[i]) > self.confidenceSlider.value/100.0:
         self.objectTable.setItem(i,1,qt.QTableWidgetItem("Yes"))
         self.objectTable.setItem(i,2,qt.QTableWidgetItem(self.confidences[i]))
         self.currentConfidence = self.confidences[i]
@@ -460,17 +390,27 @@ class CNN_Image_ClassifierLogic(ScriptedLoadableModuleLogic):
         self.objectTable.setItem(i, 2, qt.QTableWidgetItem(self.confidences[i]))
 
   def getFoundObject(self):
-    self.classifyImage()
     imgClass = 0
-    #logging.info(self.currentObjectClasses)
-    #logging.info(self.currentLabel)
+    self.labelNode = slicer.util.getNode('labelConnector')
+    labelMessage = self.labelNode.GetText()
+    if labelMessage != None:
+        labelMessage = labelMessage.split(',')
+        self.currentLabel = labelMessage[0]
+        self.confidences = labelMessage[1].strip('[]')
+        self.confidences = self.confidences.split()
+        if self.runWithWidget == True:
+            self.updateObjectTable()
+    else:
+        self.currentLabel = "no label"
+        self.currentConfidence = [1]
     while imgClass < self.numObjects and self.currentLabel != self.currentObjectClasses[imgClass]:
       imgClass += 1
     if imgClass < self.numObjects and self.currentLabel == self.currentObjectClasses[imgClass]:
       self.currentConfidence = self.confidences[imgClass]
     else:
         self.currentConfidence = self.confidences[4]
-    return (self.currentLabel,self.currentConfidence)
+    return [self.currentLabel, self.confidences, self.currentConfidence]
+
 
 
 class CNN_Image_ClassifierTest(ScriptedLoadableModuleTest):
