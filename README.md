@@ -1,7 +1,7 @@
 # ImageClassification
 1. Download this repository
 2. Add extension to 3D Slicer
-3. Add Slicer openCV and Sequences extension from Slicer extensions manager
+3. Add Slicer openCV, SlicerIGT and Sequences extension from Slicer extensions manager
 4. Install Docker Community Edition
 - https://store.docker.com/editions/community/docker-ce-desktop-windows
 - Need to create an account
