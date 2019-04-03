@@ -13,6 +13,7 @@ import time
 import tensorflow as tf
 import label_image as labIm
 import logging
+from pyIGTLink import pyIGTLink
 
 def load_graph(model_file):
   graph = tf.Graph()
@@ -25,15 +26,32 @@ def load_graph(model_file):
 
   return graph
 
-def read_tensor_from_image_file(file_name,
-                                input_height=299,
-                                input_width=299,
+def read_tensor_from_image_file(image,
+                                input_height=224,
+                                input_width=224,
                                 input_mean=0,
-                                input_std=255):
+                                input_std=224):
+
+  '''
   input_name = "file_reader"
   output_name = "normalized"
-  image_reader = file_name
-  float_caster = tf.cast(image_reader, tf.float32) #instead of using file reader, pass in image as 3D numpy array
+
+  file_reader = tf.read_file(file_name, input_name)
+  if file_name.endswith(".png"):
+	  image_reader = tf.image.decode_png(
+		  file_reader, channels=3, name="png_reader")
+  elif file_name.endswith(".gif"):
+	  image_reader = tf.squeeze(
+		  tf.image.decode_gif(file_reader, name="gif_reader"))
+  elif file_name.endswith(".bmp"):
+	  image_reader = tf.image.decode_bmp(file_reader, name="bmp_reader")
+  else:
+	  image_reader = tf.image.decode_jpeg(
+		  file_reader, channels=3, name="jpeg_reader")
+  '''
+
+  #image_reader = file_name
+  float_caster = tf.cast(image, tf.float32) #instead of using file reader, pass in image as 3D numpy array
   dims_expander = tf.expand_dims(float_caster, 0)
   resized = tf.image.resize_bilinear(dims_expander, [input_height, input_width])
   normalized = tf.divide(tf.subtract(resized, [input_mean]), [input_std])
@@ -49,11 +67,11 @@ def load_labels(label_file):
     label.append(l.rstrip())
   return label
 
-def classify_image(graph,file_name,label_file,input_operation,output_operation):
-	input_height = 299
-	input_width = 299
+def classify_image(numClasses,graph,file_name,label_file,input_operation,output_operation):
+	input_height = 224
+	input_width = 224
 	input_mean = 0
-	input_std = 255
+	input_std = 224
 
 	t = read_tensor_from_image_file(
 		file_name,
@@ -68,13 +86,13 @@ def classify_image(graph,file_name,label_file,input_operation,output_operation):
 		})
 	results = np.squeeze(results)
 
-	top_k = results.argsort()[-5:][::-1]
+	top_k = results.argsort()[-numClasses:][::-1]
 	labels = load_labels(label_file)
-	topLabel = labels[0:6]
-	topResults = np.array(results[0:6])
+	topLabel = labels[0:numClasses]
+	topResults = np.array(results[0:numClasses])
 	topScore = topResults[0]
 	topScoreInd = 0
-	for i in range(2):
+	for i in range(numClasses):
 		if topResults[i] > topScore:
 			topScore = topResults[i]
 			topScoreInd = i
@@ -83,10 +101,14 @@ def classify_image(graph,file_name,label_file,input_operation,output_operation):
 
 def main():
 	os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-	model_file = 'trained_model/'+os.environ['MODELNAME']+'/output_graph.pb'
-	label_file = 'trained_model/'+os.environ['MODELNAME']+'/output_labels.txt'
+	#model_file = 'trained_model/'+os.environ['MODELNAME']+'/output_graph.pb'
+	model_file = 'c:/Users/hisey/Documents/ImageClassificationRepo/Models/classifierContainer/trained_model/CentralLineTutor/output_graph.pb'
+	#label_file = 'trained_model/'+os.environ['MODELNAME']+'/output_labels.txt'
+	label_file = 'c:/Users/hisey/Documents/ImageClassificationRepo/Models/classifierContainer/trained_model/CentralLineTutor/output_labels.txt'
 	input_layer = 'Placeholder'
 	output_layer = 'final_result'
+	#numClasses = int(os.environ['NUMCLASSES'])
+	numClasses = int(8)
 
 	graph = load_graph(model_file)
 	input_name = "import/" + input_layer
@@ -95,25 +117,32 @@ def main():
 	output_operation = graph.get_operation_by_name(output_name)
 	currentTime = time.time()
 
-	filemodTime1 = 0
+	print("Server starting...")
+	server = pyIGTLink.PyIGTLinkServer(port=18947, localServer=True)
+	server.start()
+	print("Server running...")
 
-	while True:
-		filemodTime2 = os.path.getmtime('textLabels.txt')
-		startTime = time.time()
-		while filemodTime1 == filemodTime2 and time.time() - startTime < 5:
-			time.sleep(0.2)
-			filemodTime2 = os.path.getmtime('textLabels.txt')
-		imgSize = np.load('pictureSize.npy',fix_imports=True)
-		imageFile = np.load('picture.npy',fix_imports=True)
-		imageFile.reshape(imgSize)
+	print("Client starting...")
+	client = pyIGTLink.PyIGTLinkClient(host="127.0.0.1", port=18946)
+	client.start()
+	print("Client running...")
 
-		filemodTime1 = time.time()
+	try:
+		while True:
+			messages = client.get_latest_messages()
+			if len(messages) > 0:
+				for message in messages:
+					if message._type == "IMAGE":
+						image = message._image
+						image = image[0]
+						(label, p) = classify_image(numClasses, graph, image, label_file, input_operation,
+													output_operation)
+						labelMessage = pyIGTLink.StringMessage(str(label)+ "," + str(p), device_name='labelConnector')
 
-		(label, p) = classify_image(graph,imageFile,label_file,input_operation,output_operation)
-		with open('textLabels.txt','w') as f:
-			f.write(label + "\n" + str(p[0]) + '\n' + str(p[1]))
-		currentTime = time.time()
-
-
+						server.send_message(labelMessage)
+						print (str(label) + str(p))
+			time.sleep(0.1)
+	except KeyboardInterrupt:
+		pass
 
 main()
