@@ -126,13 +126,16 @@ def main():
 	client = pyIGTLink.PyIGTLinkClient(host="127.0.0.1", port=18946)
 	client.start()
 	print("Client running...")
-
+	lastMessageTime = time.time()
+	ImageReceived = False
 	try:
-		while True:
+		while (not ImageReceived) or (ImageReceived and time.time() - lastMessageTime < 5):
 			messages = client.get_latest_messages()
 			if len(messages) > 0:
 				for message in messages:
 					if message._type == "IMAGE":
+						ImageReceived = True
+						lastMessageTime = time.time()
 						image = message._image
 						image = image[0]
 						(label, p) = classify_image(numClasses, graph, image, label_file, input_operation,
