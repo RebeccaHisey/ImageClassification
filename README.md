@@ -25,10 +25,10 @@
     - tensorboard --logdir \<Path to retrainContainer\>/\<Model_Name\>/trained_model/retrain_logs
   - Navigate in browser to \<host_name\>:6006
 11. Run Classifier
-  Activate the anaconda environment:
-     \>\>\> conda activate \<path to repository\>/Env
+- Activate the anaconda environment:
+  - \>\>\> conda activate \<path to repository\>/Env
 - Start classifier
-     \>\>\> python \<path to repository\>/Models/classifier.py --model_name=\<Model name\>
+  - \>\>\> python \<path to repository\>/Models/classifier.py --model_name=\<Model name\>
 - Open CNN_Image_Classifier module in 3D Slicer
 - Select model
 - Click Start
