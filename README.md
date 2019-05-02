@@ -5,7 +5,7 @@
 4. Install Anaconda (https://www.anaconda.com/distribution/)
 - ensure to add to path
 5. Run setup_tensorflow_env.bat in command prompt
-- <path to repository>/setup_tensorflow_env.bat <path to repository> 
+- \<Path to repository\>/setup_tensorflow_env.bat \<path to repository\> 
 - e.g. c:/Users/ImageClassification/setup_tensorflow_env.bat c:/Users/ImageClassification
 7. Collect training photos
 - Open Collect_Training_Photos module in 3D Slicer
@@ -17,7 +17,7 @@
 - Click Stop Image Collection
 8. Retrain the network
 - run StartRetrain.bat from command prompt
-  - <Path to repository>/StartRetrain.bat <Path to repository> <Model name> <Number of training steps> <Batch size> 
+  - \<Path to repository\>/StartRetrain.bat \<Path to repository\> <\Model name\> \<Number of training steps\> \<Batch size\> 
   - e.g. c:/Users/ImageClassification/StartRetrain.bat c:/Users/ImageClassification SampleName 500 100
 - To visualize training:
   - Open command prompt
@@ -26,9 +26,9 @@
   - Navigate in browser to \<host_name\>:6006
 11. Run Classifier
   Activate the anaconda environment:
-     >>> conda activate <path to repository>/Env
+     \>\>\> conda activate \<path to repository\>/Env
 - Start classifier
-     >>> python <path to repository>/Models/classifier.py --model_name=<Model name>
+     \>\>\> python \<path to repository\>/Models/classifier.py --model_name=\<Model name\>
 - Open CNN_Image_Classifier module in 3D Slicer
 - Select model
 - Click Start
