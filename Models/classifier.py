@@ -11,9 +11,10 @@ import subprocess
 import itertools
 import time
 import tensorflow as tf
-import label_image as labIm
 import logging
 from pyIGTLink import pyIGTLink
+
+FLAGS = None
 
 def load_graph(model_file):
   graph = tf.Graph()
@@ -27,10 +28,10 @@ def load_graph(model_file):
   return graph
 
 def read_tensor_from_image_file(image,
-                                input_height=224,
-                                input_width=224,
+                                input_height=244,
+                                input_width=244,
                                 input_mean=0,
-                                input_std=224):
+                                input_std=244):
 
   '''
   input_name = "file_reader"
@@ -101,10 +102,11 @@ def classify_image(numClasses,graph,file_name,label_file,input_operation,output_
 
 def main():
 	os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+	model_name = FLAGS.model_name
 	#model_file = 'trained_model/'+os.environ['MODELNAME']+'/output_graph.pb'
-	model_file = 'c:/Users/hisey/Documents/ImageClassificationRepo/Models/classifierContainer/trained_model/CentralLineTutor/output_graph.pb'
+	model_file = 'c:/Users/hisey/Documents/ImageClassificationRepo/Models/'+ model_name + '/trained_model/output_graph.pb'
 	#label_file = 'trained_model/'+os.environ['MODELNAME']+'/output_labels.txt'
-	label_file = 'c:/Users/hisey/Documents/ImageClassificationRepo/Models/classifierContainer/trained_model/CentralLineTutor/output_labels.txt'
+	label_file = 'c:/Users/hisey/Documents/ImageClassificationRepo/Models/'+ model_name + '/trained_model/output_labels.txt'
 	input_layer = 'Placeholder'
 	output_layer = 'final_result'
 	#numClasses = int(os.environ['NUMCLASSES'])
@@ -129,7 +131,7 @@ def main():
 	lastMessageTime = time.time()
 	ImageReceived = False
 	try:
-		while (not ImageReceived) or (ImageReceived and time.time() - lastMessageTime < 5):
+		while (not ImageReceived) or (ImageReceived and time.time() - lastMessageTime < 15):
 			messages = client.get_latest_messages()
 			if len(messages) > 0:
 				for message in messages:
@@ -144,8 +146,18 @@ def main():
 
 						server.send_message(labelMessage)
 						print (str(label) + str(p))
-			time.sleep(0.1)
+			time.sleep(0.05)
 	except KeyboardInterrupt:
 		pass
 
+#main()
+if __name__ == '__main__':
+  parser = argparse.ArgumentParser()
+  parser.add_argument(
+      '--model_name',
+      type=str,
+      default='',
+      help='Name of model.'
+  )
+FLAGS, unparsed = parser.parse_known_args()
 main()

@@ -19,8 +19,10 @@ def main():
 	summariesDirectory = "--summaries_dir=./" + os.environ['MODELNAME'] + "/trained_model/retrain_logs"
 	bottleneckDirectory = "--bottleneck_dir=./" + os.environ['MODELNAME'] + "/trained_model/bottleneck"
 	savedModelDirectory = "--saved_model_dir=./" + os.environ['MODELNAME'] + "/trained_model"
+	numTrainingSteps = "--how_many_training_steps="+os.environ['NUMTRAININGSTEPS']
+	batchSize = "--train_batch_size="+os.environ['TRAINBATCHSIZE']
 
-	cmd = ["python","retrain.py",trainingPhotoDirectory,outputGraph,outputLabels,summariesDirectory,bottleneckDirectory,savedModelDirectory]
+	cmd = ["python","retrain.py",numTrainingSteps,batchSize,trainingPhotoDirectory,outputGraph,outputLabels,summariesDirectory,bottleneckDirectory,savedModelDirectory]
 	p = subprocess.Popen(cmd,stdin = subprocess.PIPE, shell=False)
 	p.communicate()
 	#while p.poll() is None:

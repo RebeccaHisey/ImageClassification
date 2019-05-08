@@ -58,7 +58,7 @@ class Collect_Training_ImagesWidget(ScriptedLoadableModuleWidget):
 
     self.modelSelector = qt.QComboBox()
     self.modelSelector.addItems(["Select model"])
-    modelDirectoryContents = os.listdir(os.path.join(self.moduleDir,os.pardir,"Models/retrainContainer"))
+    modelDirectoryContents = os.listdir(os.path.join(self.moduleDir,os.pardir,"Models"))
     modelNames = [dir for dir in modelDirectoryContents if dir.find(".") == -1 and dir != "Dockerfile"]
     self.modelSelector.addItems(["Create new model"])
     self.modelSelector.addItems(modelNames)
@@ -270,7 +270,7 @@ class Collect_Training_ImagesWidget(ScriptedLoadableModuleWidget):
         self.createNewModelWidget.show()
     elif self.modelSelector.currentText != "Select model":
       self.currentModelName = self.modelSelector.currentText
-      self.trainingPhotoPath = os.path.join(self.moduleDir,os.pardir,"Models/retrainContainer",self.modelSelector.currentText,"training_photos")
+      self.trainingPhotoPath = os.path.join(self.moduleDir,os.pardir,"Models",self.modelSelector.currentText,"training_photos")
       self.imageSaveDirectoryLineEdit.currentPath = self.trainingPhotoPath
       self.addImageClassesToComboBox()
     else:
@@ -288,7 +288,7 @@ class Collect_Training_ImagesWidget(ScriptedLoadableModuleWidget):
   def onNewModelAdded(self):
     self.currentModelName = self.modelNameLineEdit.text
     try:
-      modelPath = os.path.join(self.moduleDir,os.pardir,"Models/retrainContainer",self.currentModelName)
+      modelPath = os.path.join(self.moduleDir,os.pardir,"Models",self.currentModelName)
       os.mkdir(modelPath)
       os.mkdir(os.path.join(modelPath,"training_photos"))
       os.mkdir(os.path.join(modelPath,"trained_model"))
@@ -438,16 +438,21 @@ class Collect_Training_ImagesLogic(ScriptedLoadableModuleLogic):
   def retrainClassifier(self,modelName):
     logging.info("creating docker container")
     retrainContainerPath = slicer.modules.collect_training_images.path
-    retrainContainerPath = retrainContainerPath.replace("Collect_Training_Images/Collect_Training_Images.py","Models/retrainContainer")
+    ExtensionPath = retrainContainerPath.replace("Collect_Training_Images/Collect_Training_Images.py","")
+    retrainContainerPath = retrainContainerPath.replace("Collect_Training_Images/Collect_Training_Images.py","Models")
     volumeflag = "-v=" + retrainContainerPath + ":/app"
     modelNameFlag = str("MODELNAME=" + modelName)
-    numTrainingStepsFlag = "NUMTRAININGSTEPS=" + str(50000)
+    numTrainingStepsFlag = "NUMTRAININGSTEPS=" + str(6000)
+    trainingBatchSize="TRAINBATCHSIZE=" + str(150)
     logging.info(modelNameFlag)
-    cmd = ["C:/Program Files/Docker/Docker/resources/bin/docker.exe", "run", "-i", "--name", "retrain", "--rm",
-           volumeflag, "-e", modelNameFlag, "-e", numTrainingStepsFlag, "-p", "80:5000", "-p","6006:6006","retrainimage"]
-    p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout = subprocess.PIPE, stderr=subprocess.PIPE,shell=True)
+    #cmd = ["C:/Program Files/Docker/Docker/resources/bin/docker.exe", "run", "-i", "--name", "retrain", "--rm",
+    #       volumeflag, "-e", modelNameFlag, "-e", numTrainingStepsFlag, "-e", trainingBatchSize, "-p", "80:5000", "-p","6006:6006","retrainimage"]
+    cmd = ["call",ExtensionPath+"\StartRetrain",ExtensionPath,modelName,"100","50"]
+    p = subprocess.Popen(cmd,stdout=subprocess.PIPE,stderr=subprocess.PIPE, shell=True)
     logging.info("starting docker container")
-    p.communicate()
+    [output,error] = p.communicate()
+    print (output)
+    print(error)
     #logging.info(error)
     #cmd = ["C:/Program Files/Docker/Docker/resources/bin/docker.exe", "start", "-i", "retrain"]
     #q = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout = subprocess.PIPE, stderr=subprocess.PIPE,shell=True)

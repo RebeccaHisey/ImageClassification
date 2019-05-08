@@ -17,75 +17,58 @@
 
 # pylint: disable=line-too-long
 r"""Simple transfer learning with image modules from TensorFlow Hub.
-
 This example shows how to train an image classifier based on any
 TensorFlow Hub module that computes image feature vectors. By default,
 it uses the feature vectors computed by Inception V3 trained on ImageNet.
 See https://github.com/tensorflow/hub/blob/r0.1/docs/modules/image.md
 for more options.
-
 The top layer receives as input a 2048-dimensional vector (assuming
 Inception V3) for each image. We train a softmax layer on top of this
 representation. If the softmax layer contains N labels, this corresponds
 to learning N + 2048*N model parameters for the biases and weights.
-
 Here's an example, which assumes you have a folder containing class-named
 subfolders, each full of images for each label. The example folder flower_photos
 should have a structure like this:
-
 ~/flower_photos/daisy/photo1.jpg
 ~/flower_photos/daisy/photo2.jpg
 ...
 ~/flower_photos/rose/anotherphoto77.jpg
 ...
 ~/flower_photos/sunflower/somepicture.jpg
-
 The subfolder names are important, since they define what label is applied to
 each image, but the filenames themselves don't matter. (For a working example,
 download http://download.tensorflow.org/example_images/flower_photos.tgz
 and run  tar xzf flower_photos.tgz  to unpack it.)
-
 Once your images are prepared, and you have pip-installed tensorflow-hub and
 a sufficiently recent version of tensorflow, you can run the training with a
 command like this:
-
 ```bash
 python retrain.py --image_dir ~/flower_photos
 ```
-
 You can replace the image_dir argument with any folder containing subfolders of
 images. The label for each image is taken from the name of the subfolder it's
 in.
-
 This produces a new model file that can be loaded and run by any TensorFlow
 program, for example the tensorflow/examples/label_image sample code.
-
 By default this script will use the highly accurate, but comparatively large and
 slow Inception V3 model architecture. It's recommended that you start with this
 to validate that you have gathered good training data, but if you want to deploy
 on resource-limited platforms, you can try the `--tfhub_module` flag with a
 Mobilenet model. For more information on Mobilenet, see
 https://research.googleblog.com/2017/06/mobilenets-open-source-models-for.html
-
 For example:
-
 Run floating-point version of Mobilenet:
-
 ```bash
 python retrain.py --image_dir ~/flower_photos \
     --tfhub_module https://tfhub.dev/google/imagenet/mobilenet_v1_100_224/feature_vector/1
 ```
-
 Run Mobilenet, instrumented for quantization:
-
 ```bash
 python retrain.py --image_dir ~/flower_photos/ \
     --tfhub_module https://tfhub.dev/google/imagenet/mobilenet_v1_100_224/quantops/feature_vector/1
 ```
-
 These instrumented models can be converted to fully quantized mobile models via
 TensorFlow Lite.
-
 There are different Mobilenet models to choose from, with a variety of file
 size and latency options.
   - The first number can be '100', '075', '050', or '025' to control the number
@@ -94,18 +77,12 @@ size and latency options.
     fraction.
   - The second number is the input image size. You can choose '224', '192',
     '160', or '128', with smaller sizes giving faster speeds.
-
 To use with TensorBoard:
-
 By default, this script will log summaries to /tmp/retrain_logs directory
-
 Visualize the summaries with this command:
-
 tensorboard --logdir /tmp/retrain_logs
-
 To use with Tensorflow Serving, run this tool with --saved_model_dir set
 to some increasingly numbered export location under the model base path, e.g.:
-
 ```bash
 python retrain.py (... other args as before ...) \
     --saved_model_dir=/tmp/saved_models/$(date +%s)/
@@ -147,16 +124,13 @@ FAKE_QUANT_OPS = ('FakeQuantWithMinMaxVars',
 
 def create_image_lists(image_dir, testing_percentage, validation_percentage):
   """Builds a list of training images from the file system.
-
   Analyzes the sub folders in the image directory, splits them into stable
   training, testing, and validation sets, and returns a data structure
   describing the lists of images for each label and their paths.
-
   Args:
     image_dir: String path to a folder containing subfolders of images.
     testing_percentage: Integer percentage of the images to reserve for tests.
     validation_percentage: Integer percentage of images reserved for validation.
-
   Returns:
     An OrderedDict containing an entry for each label subfolder, with images
     split into training, testing, and validation sets within each label.
@@ -232,7 +206,6 @@ def create_image_lists(image_dir, testing_percentage, validation_percentage):
 
 def get_image_path(image_lists, label_name, index, image_dir, category):
   """Returns a path to an image for a label at the given index.
-
   Args:
     image_lists: OrderedDict of training images for each label.
     label_name: Label string we want to get an image for.
@@ -242,10 +215,8 @@ def get_image_path(image_lists, label_name, index, image_dir, category):
     images.
     category: Name string of set to pull images from - training, testing, or
     validation.
-
   Returns:
     File system path string to an image that meets the requested parameters.
-
   """
   if label_name not in image_lists:
     tf.logging.fatal('Label does not exist %s.', label_name)
@@ -266,7 +237,6 @@ def get_image_path(image_lists, label_name, index, image_dir, category):
 def get_bottleneck_path(image_lists, label_name, index, bottleneck_dir,
                         category, module_name):
   """Returns a path to a bottleneck file for a label at the given index.
-
   Args:
     image_lists: OrderedDict of training images for each label.
     label_name: Label string we want to get an image for.
@@ -276,7 +246,6 @@ def get_bottleneck_path(image_lists, label_name, index, bottleneck_dir,
     category: Name string of set to pull images from - training, testing, or
     validation.
     module_name: The name of the image module being used.
-
   Returns:
     File system path string to an image that meets the requested parameters.
   """
@@ -289,10 +258,8 @@ def get_bottleneck_path(image_lists, label_name, index, bottleneck_dir,
 
 def create_module_graph(module_spec):
   """Creates a graph and loads Hub Module into it.
-
   Args:
     module_spec: the hub.ModuleSpec for the image module being used.
-
   Returns:
     graph: the tf.Graph that was created.
     bottleneck_tensor: the bottleneck values output by the module.
@@ -314,7 +281,6 @@ def run_bottleneck_on_image(sess, image_data, image_data_tensor,
                             decoded_image_tensor, resized_input_tensor,
                             bottleneck_tensor):
   """Runs inference on an image to extract the 'bottleneck' summary layer.
-
   Args:
     sess: Current active TensorFlow Session.
     image_data: String of raw JPEG data.
@@ -322,7 +288,6 @@ def run_bottleneck_on_image(sess, image_data, image_data_tensor,
     decoded_image_tensor: Output of initial image resizing and preprocessing.
     resized_input_tensor: The input node of the recognition graph.
     bottleneck_tensor: Layer before the final softmax.
-
   Returns:
     Numpy array of bottleneck values.
   """
@@ -338,7 +303,6 @@ def run_bottleneck_on_image(sess, image_data, image_data_tensor,
 
 def ensure_dir_exists(dir_name):
   """Makes sure the folder exists on disk.
-
   Args:
     dir_name: Path string to the folder we want to create.
   """
@@ -374,10 +338,8 @@ def get_or_create_bottleneck(sess, image_lists, label_name, index, image_dir,
                              decoded_image_tensor, resized_input_tensor,
                              bottleneck_tensor, module_name):
   """Retrieves or calculates bottleneck values for an image.
-
   If a cached version of the bottleneck data exists on-disk, return that,
   otherwise calculate the data and save it to disk for future use.
-
   Args:
     sess: The current active TensorFlow Session.
     image_lists: OrderedDict of training images for each label.
@@ -394,7 +356,6 @@ def get_or_create_bottleneck(sess, image_lists, label_name, index, image_dir,
     resized_input_tensor: The input node of the recognition graph.
     bottleneck_tensor: The output tensor for the bottleneck values.
     module_name: The name of the image module being used.
-
   Returns:
     Numpy array of values produced by the bottleneck layer for the image.
   """
@@ -434,14 +395,12 @@ def cache_bottlenecks(sess, image_lists, image_dir, bottleneck_dir,
                       jpeg_data_tensor, decoded_image_tensor,
                       resized_input_tensor, bottleneck_tensor, module_name):
   """Ensures all the training, testing, and validation bottlenecks are cached.
-
   Because we're likely to read the same image multiple times (if there are no
   distortions applied during training) it can speed things up a lot if we
   calculate the bottleneck layer values once for each image during
   preprocessing, and then just read those cached values repeatedly during
   training. Here we go through all the images we've found, calculate those
   values, and save them off.
-
   Args:
     sess: The current active TensorFlow Session.
     image_lists: OrderedDict of training images for each label.
@@ -453,7 +412,6 @@ def cache_bottlenecks(sess, image_lists, image_dir, bottleneck_dir,
     resized_input_tensor: The input node of the recognition graph.
     bottleneck_tensor: The penultimate output layer of the graph.
     module_name: The name of the image module being used.
-
   Returns:
     Nothing.
   """
@@ -479,11 +437,9 @@ def get_random_cached_bottlenecks(sess, image_lists, how_many, category,
                                   decoded_image_tensor, resized_input_tensor,
                                   bottleneck_tensor, module_name):
   """Retrieves bottleneck values for cached images.
-
   If no distortions are being applied, this function can retrieve the cached
   bottleneck values directly from disk for images. It picks a random set of
   images from the specified category.
-
   Args:
     sess: Current TensorFlow Session.
     image_lists: OrderedDict of training images for each label.
@@ -499,7 +455,6 @@ def get_random_cached_bottlenecks(sess, image_lists, how_many, category,
     resized_input_tensor: The input node of the recognition graph.
     bottleneck_tensor: The bottleneck output layer of the CNN graph.
     module_name: The name of the image module being used.
-
   Returns:
     List of bottleneck arrays, their corresponding ground truths, and the
     relevant filenames.
@@ -544,13 +499,11 @@ def get_random_distorted_bottlenecks(
     sess, image_lists, how_many, category, image_dir, input_jpeg_tensor,
     distorted_image, resized_input_tensor, bottleneck_tensor):
   """Retrieves bottleneck values for training images, after distortions.
-
   If we're training with distortions like crops, scales, or flips, we have to
   recalculate the full model for every image, and so we can't use cached
   bottleneck values. Instead we find random images for the requested category,
   run them through the distortion graph, and then the full graph to get the
   bottleneck results for each.
-
   Args:
     sess: Current TensorFlow Session.
     image_lists: OrderedDict of training images for each label.
@@ -563,7 +516,6 @@ def get_random_distorted_bottlenecks(
     distorted_image: The output node of the distortion graph.
     resized_input_tensor: The input node of the recognition graph.
     bottleneck_tensor: The bottleneck output layer of the CNN graph.
-
   Returns:
     List of bottleneck arrays and their corresponding ground truths.
   """
@@ -595,14 +547,12 @@ def get_random_distorted_bottlenecks(
 def should_distort_images(flip_left_right, random_crop, random_scale,
                           random_brightness):
   """Whether any distortions are enabled, from the input flags.
-
   Args:
     flip_left_right: Boolean whether to randomly mirror images horizontally.
     random_crop: Integer percentage setting the total margin used around the
     crop box.
     random_scale: Integer percentage of how much to vary the scale by.
     random_brightness: Integer range to randomly multiply the pixel values by.
-
   Returns:
     Boolean value indicating whether any distortions should be applied.
   """
@@ -613,22 +563,18 @@ def should_distort_images(flip_left_right, random_crop, random_scale,
 def add_input_distortions(flip_left_right, random_crop, random_scale,
                           random_brightness, module_spec):
   """Creates the operations to apply the specified distortions.
-
   During training it can help to improve the results if we run the images
   through simple distortions like crops, scales, and flips. These reflect the
   kind of variations we expect in the real world, and so can help train the
   model to cope with natural data more effectively. Here we take the supplied
   parameters and construct a network of operations to apply them to an image.
-
   Cropping
   ~~~~~~~~
-
   Cropping is done by placing a bounding box at a random position in the full
   image. The cropping parameter controls the size of that box relative to the
   input image. If it's zero, then the box is the same size as the input and no
   cropping is performed. If the value is 50%, then the crop box will be half the
   width and height of the input. In a diagram it looks like this:
-
   <       width         >
   +---------------------+
   |                     |
@@ -642,16 +588,13 @@ def add_input_distortions(flip_left_right, random_crop, random_scale,
   |                     |
   |                     |
   +---------------------+
-
   Scaling
   ~~~~~~~
-
   Scaling is a lot like cropping, except that the bounding box is always
   centered and its size varies randomly within the given range. For example if
   the scale percentage is zero, then the bounding box is the same size as the
   input and no scaling is applied. If it's 50%, then the bounding box will be in
   a random range between half the width and height and full size.
-
   Args:
     flip_left_right: Boolean whether to randomly mirror images horizontally.
     random_crop: Integer percentage setting the total margin used around the
@@ -660,7 +603,6 @@ def add_input_distortions(flip_left_right, random_crop, random_scale,
     random_brightness: Integer range to randomly multiply the pixel values by.
     graph.
     module_spec: The hub.ModuleSpec for the image module being used.
-
   Returns:
     The jpeg input layer and the distorted result tensor.
   """
@@ -718,14 +660,11 @@ def variable_summaries(var):
 def add_final_retrain_ops(class_count, final_tensor_name, bottleneck_tensor,
                           quantize_layer, is_training):
   """Adds a new softmax and fully-connected layer for training and eval.
-
   We need to retrain the top layer to identify our new classes, so this function
   adds the right operations to the graph, along with some variables to hold the
   weights, and then sets up all the gradients for the backward pass.
-
   The set up for the softmax and fully-connected layers is based on:
   https://www.tensorflow.org/tutorials/mnist/beginners/index.html
-
   Args:
     class_count: Integer of how many categories of things we're trying to
         recognize.
@@ -735,7 +674,6 @@ def add_final_retrain_ops(class_count, final_tensor_name, bottleneck_tensor,
         instrumented for quantization with TF-Lite.
     is_training: Boolean, specifying whether the newly add layer is for training
         or eval.
-
   Returns:
     The tensors for the training and cross entropy results, and tensors for the
     bottleneck input and ground truth input.
@@ -802,12 +740,10 @@ def add_final_retrain_ops(class_count, final_tensor_name, bottleneck_tensor,
 
 def add_evaluation_step(result_tensor, ground_truth_tensor):
   """Inserts the operations we need to evaluate the accuracy of our results.
-
   Args:
     result_tensor: The new final node that produces results.
     ground_truth_tensor: The node we feed ground truth data
     into.
-
   Returns:
     Tuple of (evaluation step, prediction).
   """
@@ -825,7 +761,6 @@ def run_final_eval(train_session, module_spec, class_count, image_lists,
                    jpeg_data_tensor, decoded_image_tensor,
                    resized_image_tensor, bottleneck_tensor):
   """Runs a final evaluation on an eval graph using the test data set.
-
   Args:
     train_session: Session for the train graph with the tensors below.
     module_spec: The hub.ModuleSpec for the image module being used.
@@ -865,11 +800,9 @@ def run_final_eval(train_session, module_spec, class_count, image_lists,
 
 def build_eval_session(module_spec, class_count):
   """Builds an restored eval session without train operations for exporting.
-
   Args:
     module_spec: The hub.ModuleSpec for the image module being used.
     class_count: Number of classes
-
   Returns:
     Eval session containing the restored eval graph.
     The bottleneck input, ground truth, eval step, and prediction tensors.
@@ -921,10 +854,8 @@ def prepare_file_system():
 
 def add_jpeg_decoding(module_spec):
   """Adds operations that perform JPEG decoding and resizing to the graph..
-
   Args:
     module_spec: The hub.ModuleSpec for the image module being used.
-
   Returns:
     Tensors for the node to feed JPEG data into, and the output of the
       preprocessing steps.
@@ -946,7 +877,6 @@ def add_jpeg_decoding(module_spec):
 
 def export_model(module_spec, class_count, saved_model_dir):
   """Exports model for serving.
-
   Args:
     module_spec: The hub.ModuleSpec for the image module being used.
     class_count: The number of classes.

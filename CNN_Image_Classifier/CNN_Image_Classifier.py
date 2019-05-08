@@ -58,7 +58,7 @@ class CNN_Image_ClassifierWidget(ScriptedLoadableModuleWidget):
 
     self.modelSelector = qt.QComboBox()
     self.modelSelector.addItems(["Select model"])
-    modelDirectoryContents = os.listdir(os.path.join(self.moduleDir, os.pardir, "Models/retrainContainer"))
+    modelDirectoryContents = os.listdir(os.path.join(self.moduleDir, os.pardir, "Models"))
     modelNames = [dir for dir in modelDirectoryContents if dir.find(".") == -1 and dir != "Dockerfile"]
     self.modelSelector.addItems(["Create new model"])
     self.modelSelector.addItems(modelNames)
@@ -256,7 +256,7 @@ class CNN_Image_ClassifierWidget(ScriptedLoadableModuleWidget):
   def onModelSelected(self):
     if self.modelSelector.currentText != "Select model":
       self.applyButton.enabled = True
-      self.currentModelDirectory = os.path.join(self.moduleDir, os.pardir, "Models/retrainContainer", self.modelSelector.currentText)
+      self.currentModelDirectory = os.path.join(self.moduleDir, os.pardir, "Models", self.modelSelector.currentText)
       modelObjectClasses = os.listdir(os.path.join(self.currentModelDirectory,"training_photos"))
       self.currentObjectClasses = [dir for dir in modelObjectClasses if dir.find(".") == -1]
       self.objectTable.setRowCount(len(self.currentObjectClasses))
@@ -319,7 +319,7 @@ class CNN_Image_ClassifierLogic(ScriptedLoadableModuleLogic):
         self.labelNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLTextNode","labelConnector")
     self.labelObserver = self.labelNode.AddObserver(slicer.vtkMRMLTextNode.TextModifiedEvent, self.onLabelModified)
     self.moduleDir = os.path.dirname(slicer.modules.collect_training_images.path)
-    self.currentModelDirectory = os.path.join(self.moduleDir, os.pardir, "Models/retrainContainer",modelName)
+    self.currentModelDirectory = os.path.join(self.moduleDir, os.pardir, "Models",modelName)
     modelObjectClasses = os.listdir(os.path.join(self.currentModelDirectory, "training_photos"))
     self.currentObjectClasses = [dir for dir in modelObjectClasses if dir.find(".") == -1]
     self.numObjects = len(self.currentObjectClasses)
