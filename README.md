@@ -2,18 +2,11 @@
 1. Download this repository
 2. Add extension to 3D Slicer
 3. Add Slicer openCV, SlicerIGT and Sequences extension from Slicer extensions manager
-4. Install Docker Community Edition
-- https://store.docker.com/editions/community/docker-ce-desktop-windows
-- Need to create an account
-- Install using linux containers
-5. Install tensorflow (optional)
-- Only needed to visualize training metrics using tensorboard
-- CPU only version
--  https://www.tensorflow.org/versions/r1.8/install/
-6. Build Retrain Container
-- Open command prompt
-- Build container using the following command:
-  - docker build -t retrainimage \<Path to ImageClassification Directory\>/Models/retrainContainer
+4. Install Anaconda (https://www.anaconda.com/distribution/)
+- ensure to add to path
+5. Run setup_tensorflow_env.bat in command prompt
+- \<Path to repository\>/setup_tensorflow_env.bat \<path to repository\> 
+- e.g. c:/Users/ImageClassification/setup_tensorflow_env.bat c:/Users/ImageClassification
 7. Collect training photos
 - Open Collect_Training_Photos module in 3D Slicer
 - Start Plus Config file
@@ -23,25 +16,19 @@
   - For best results introduce as much variety in orientation and background conditions as possible
 - Click Stop Image Collection
 8. Retrain the network
-- Click Retrain
-- This may take up to 20min
+- run StartRetrain.bat from command prompt
+  - \<Path to repository\>/StartRetrain.bat \<Path to repository\> <\Model name\> \<Number of training steps\> \<Batch size\> 
+  - e.g. c:/Users/ImageClassification/StartRetrain.bat c:/Users/ImageClassification SampleName 500 100
 - To visualize training:
   - Open command prompt
   - Execute the following command:
     - tensorboard --logdir \<Path to retrainContainer\>/\<Model_Name\>/trained_model/retrain_logs
   - Navigate in browser to \<host_name\>:6006
-9. Copy output_graph.pb and output_labels.txt from retrainContainer directory to classifierContainer/trained_model/\<Model name\> directory
-10. Build Classifier Container
-- Open command prompt
-- Build container using the following command:
-  - docker build -t classifierimage \<Path to ImageClassification Directory\>/Models/classifierContainer
 11. Run Classifier
+- Activate the anaconda environment:
+  - \>\>\> conda activate \<path to repository\>/Env
+- Start classifier
+  - \>\>\> python \<path to repository\>/Models/classifier.py --model_name=\<Model name\>
 - Open CNN_Image_Classifier module in 3D Slicer
 - Select model
 - Click Start
-12. Making changes to classifier container
-- image must be rebuilt when files in classifierContainer folder are changed
-- execute the following commands in a command prompt window
-  - docker image ls
-  - docker image rm \<ID of classifierimage\>
-- Repeat step 9 to rebuild 
