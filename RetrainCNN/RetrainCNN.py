@@ -142,7 +142,7 @@ class RetrainCNNLogic(ScriptedLoadableModuleLogic):
     self.randomScale = 0
     self.randomBrightness = 0
 
-    self.tfHubModel = "https://tfhub.dev/google/imagenet/inception_v3/feature_vector/1"
+    self.tfHubModel = "https://tfhub.dev/google/imagenet/mobilenet_v1_100_224/feature_vector/1"
 
     self.moduleDir = os.path.dirname(slicer.modules.collect_training_images.path)
     self.trainingImageDir=os.path.join(self.moduleDir,os.pardir,"Models",self.modelName,"training_photos")
