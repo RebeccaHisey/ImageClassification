@@ -287,8 +287,8 @@ class CNN_Image_ClassifierLogic(ScriptedLoadableModuleLogic):
     self.confidenceSlider = confidenceSlider
     self.webcamReference = slicer.util.getNode('Webcam_Reference')
 
-    model_file = 'c:/Users/hisey/Documents/ImageClassificationRepo/Models/' + self.modelName + '/trained_model/output_graph.pb'
-    self.label_file = 'c:/Users/hisey/Documents/ImageClassificationRepo/Models/' + self.modelName + '/trained_model/output_labels.txt'
+    model_file = self.currentModelDirectory + '/trained_model/output_graph.pb'
+    self.label_file = self.currentModelDirectory + '/trained_model/output_labels.txt'
     input_layer = 'Placeholder'
     output_layer = 'final_result'
 
