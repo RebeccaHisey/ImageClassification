@@ -92,13 +92,6 @@ class Collect_Training_ImagesWidget(ScriptedLoadableModuleWidget):
     self.startStopCollectingImagesButton.enabled = False
     parametersFormLayout.addRow(self.startStopCollectingImagesButton)
 
-    #
-    # Retrain Classifier Button
-    #
-    self.retrainClassifierButton = qt.QPushButton("Retrain")
-    self.retrainClassifierButton.toolTip = "Retrain the convolutional neural network classifier"
-    self.retrainClassifierButton.enabled = False
-    parametersFormLayout.addRow(self.retrainClassifierButton)
 
     self.infoLabel = qt.QLabel("")
     parametersFormLayout.addRow(self.infoLabel)
@@ -106,7 +99,6 @@ class Collect_Training_ImagesWidget(ScriptedLoadableModuleWidget):
     # connections
     self.modelSelector.connect('currentIndexChanged(int)',self.onModelSelected)
     self.startStopCollectingImagesButton.connect('clicked(bool)', self.onStartStopCollectingImagesButton)
-    self.retrainClassifierButton.connect('clicked(bool)',self.onRetrainClicked)
     self.imageClassComboBox.connect('currentIndexChanged(int)',self.onImageClassSelected)
 
     # Add vertical spacer
@@ -276,7 +268,7 @@ class Collect_Training_ImagesWidget(ScriptedLoadableModuleWidget):
     else:
       for i in range(2, self.imageClassComboBox.count + 1):
         self.imageClassComboBox.removeItem(i)
-    self.retrainClassifierButton.enabled = self.modelSelector.currentText != "Select model" and self.modelSelector != "Create new model"
+
 
   def addImageClassesToComboBox(self):
     for i in range(2,self.imageClassComboBox.count + 1):
@@ -395,7 +387,7 @@ class Collect_Training_ImagesLogic(ScriptedLoadableModuleLogic):
     try:
       # the module is in the python path
       import cv2
-    except ImportError:
+    except ModuleNotFoundError:
       # for the build directory, load from the file
       import imp, platform
       if platform.system() == 'Windows':
