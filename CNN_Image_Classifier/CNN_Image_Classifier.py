@@ -1,11 +1,20 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import os
+import sys
 import unittest
 import vtk, qt, ctk, slicer
 from slicer.ScriptedLoadableModule import *
+import subprocess
+import itertools
 import logging
 import subprocess
-import numpy
+import numpy as np
 import time
+
+import tensorflow as tf
 
 
 #
@@ -72,9 +81,11 @@ class CNN_Image_ClassifierWidget(ScriptedLoadableModuleWidget):
     self.applyButton.enabled = False
     parametersFormLayout.addRow(self.applyButton)
 
+    '''
     self.classifyAllFramesButton = qt.QPushButton("Classify all frames")
     self.classifyAllFramesButton.toolTip = "classify all frames in a sequence"
     parametersFormLayout.addRow(self.classifyAllFramesButton)
+    '''
 
     #
     # Object table
@@ -111,7 +122,7 @@ class CNN_Image_ClassifierWidget(ScriptedLoadableModuleWidget):
 
     # connections
     self.applyButton.connect('clicked(bool)', self.onApplyButton)
-    self.classifyAllFramesButton.connect('clicked(bool)', self.onClassifyAllFramesClicked)
+    #self.classifyAllFramesButton.connect('clicked(bool)', self.onClassifyAllFramesClicked)
     self.modelSelector.connect('currentIndexChanged(int)',self.onModelSelected)
     self.confidenceSlider.connect('sliderMoved(int)',self.onConfidenceChanged)
 
@@ -147,20 +158,6 @@ class CNN_Image_ClassifierWidget(ScriptedLoadableModuleWidget):
     self.webcamConnectorNode.Start()
     self.setupWebcamResliceDriver()
 
-    self.classifierConnectorNode = self.createClassifierConnector()
-    self.classifierConnectorNode.Start()
-    self.classifierConnectorNode.RegisterOutgoingMRMLNode(self.webcamReference)
-
-    try:
-      self.classifierLabel = slicer.util.getNode('labelConnector')
-    except slicer.util.MRMLNodeNotFoundException:
-      self.classifierLabel = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLTextNode", "labelConnector")
-
-    self.labelConnectorNode = self.createLabelConnector()
-    self.labelConnectorNode.Start()
-    self.labelConnectorNode.RegisterIncomingMRMLNode(self.classifierLabel)
-
-
   def selectRecordingNode(self):
     sequenceNodes = slicer.mrmlScene.GetNodesByClass('vtkMRMLSequenceBrowserNode')
     selectedNode = sequenceNodes.GetItemAsObject(0)
@@ -182,7 +179,7 @@ class CNN_Image_ClassifierWidget(ScriptedLoadableModuleWidget):
       webcamConnectorNode.SetTypeClient(hostName, int(port))
       logging.debug('Webcam PlusConnector Created')
     return webcamConnectorNode
-
+  '''
   def createClassifierConnector(self):
     try:
         classifierConnectorNode = slicer.util.getNode('ClassifierPlusConnector')
@@ -214,6 +211,7 @@ class CNN_Image_ClassifierWidget(ScriptedLoadableModuleWidget):
           labelConnectorNode.SetTypeClient(hostName, int(port))
           logging.debug('Label Classifier Connector Created')
       return labelConnectorNode
+  '''
 
 
   def setupWebcamResliceDriver(self):
@@ -274,6 +272,13 @@ class CNN_Image_ClassifierWidget(ScriptedLoadableModuleWidget):
 class CNN_Image_ClassifierLogic(ScriptedLoadableModuleLogic):
 
   def run(self,objectTable,confidenceSlider,modelName):
+    self.moduleDir = os.path.dirname(slicer.modules.collect_training_images.path)
+    self.currentModelDirectory = os.path.join(self.moduleDir, os.pardir, "Models", modelName)
+    modelObjectClasses = os.listdir(os.path.join(self.currentModelDirectory, "training_photos"))
+    self.currentObjectClasses = [dir for dir in modelObjectClasses if dir.find(".") == -1]
+    self.numObjects = len(self.currentObjectClasses)
+
+    self.lastClassifiedTime = 0
     self.stopClassifierClicked = False
     self.modelName = modelName
     self.runWithWidget = True
@@ -281,30 +286,107 @@ class CNN_Image_ClassifierLogic(ScriptedLoadableModuleLogic):
     self.numObjects = self.objectTable.rowCount
     self.confidenceSlider = confidenceSlider
     self.webcamReference = slicer.util.getNode('Webcam_Reference')
-    self.labelNode = slicer.util.getNode('labelConnector')
-    #numpy.set_printoptions(threshold=numpy.nan)
-    try:
-		# the module is in the python path
-	    import cv2
-    except ImportError:
-		# for the build directory, load from the file
-		import imp, platform
-		if platform.system() == 'Windows':
-			cv2File = 'cv2.pyd'
-			cv2Path = '../../../../OpenCV-build/lib/Release/' + cv2File
-		else:
-			cv2File = 'cv2.so'
-			cv2Path = '../../../../OpenCV-build/lib/' + cv2File
-		scriptPath = os.path.dirname(os.path.abspath(__file__))
-		cv2Path = os.path.abspath(os.path.join(scriptPath, cv2Path))
-		# in the build directory, this path should exist, but in the installed extension
-		# it should be in the python pat, so only use the short file name
-		if not os.path.isfile(cv2Path):
-			cv2Path = cv2File
-		cv2 = imp.load_dynamic('cv2', cv2File)
+
+    model_file = 'c:/Users/hisey/Documents/ImageClassificationRepo/Models/' + self.modelName + '/trained_model/output_graph.pb'
+    self.label_file = 'c:/Users/hisey/Documents/ImageClassificationRepo/Models/' + self.modelName + '/trained_model/output_labels.txt'
+    input_layer = 'Placeholder'
+    output_layer = 'final_result'
+
+    self.graph = self.load_graph(model_file)
+    input_name = "import/" + input_layer
+    output_name = "import/" + output_layer
+    self.input_operation = self.graph.get_operation_by_name(input_name)
+    self.output_operation = self.graph.get_operation_by_name(output_name)
     self.currentLabel = ""
     self.lastUpdateSec = 0
-    self.labelObserver = self.labelNode.AddObserver(slicer.vtkMRMLTextNode.TextModifiedEvent,self.onLabelModified)
+    self.imageDataModifiedObserver = self.webcamReference.AddObserver(
+            slicer.vtkMRMLVolumeNode.ImageDataModifiedEvent, self.onWebcamImageModified)
+
+  def onWebcamImageModified(self, caller, eventid):
+      if not time.time() - self.lastClassifiedTime < 0.5:
+        imdata = self.getVtkImageDataAsOpenCVMat('Webcam_Reference')
+        (self.label, self.percentage) = self.classify_image(self.numObjects, self.graph, imdata, self.label_file, self.input_operation,
+                                  self.output_operation)
+        self.getFoundObject()
+        self.lastClassifiedTime = time.time()
+
+  def getVtkImageDataAsOpenCVMat(self, volumeNodeName):
+      cameraVolume = slicer.util.getNode(volumeNodeName)
+      image = cameraVolume.GetImageData()
+      shape = list(cameraVolume.GetImageData().GetDimensions())
+      shape.reverse()
+      components = image.GetNumberOfScalarComponents()
+      if components > 1:
+          shape.append(components)
+          shape.remove(1)
+      imageMat = vtk.util.numpy_support.vtk_to_numpy(image.GetPointData().GetScalars()).reshape(shape)
+
+      return imageMat
+
+  def load_graph(self, model_file):
+      graph = tf.Graph()
+      graph_def = tf.GraphDef()
+
+      with open(model_file, "rb") as f:
+          graph_def.ParseFromString(f.read())
+      with graph.as_default():
+          tf.import_graph_def(graph_def)
+
+      return graph
+
+  def read_tensor_from_image_file(self, image,
+                                  input_height=244,
+                                  input_width=244,
+                                  input_mean=0,
+                                  input_std=244):
+
+      float_caster = tf.cast(image, tf.float32)  # instead of using file reader, pass in image as 3D numpy array
+      dims_expander = tf.expand_dims(float_caster, 0)
+      resized = tf.image.resize_bilinear(dims_expander, [input_height, input_width])
+      normalized = tf.divide(tf.subtract(resized, [input_mean]), [input_std])
+      sess = tf.Session()
+      result = sess.run(normalized)
+
+      return result
+
+  def load_labels(self, label_file):
+      label = []
+      proto_as_ascii_lines = tf.gfile.GFile(label_file).readlines()
+      for l in proto_as_ascii_lines:
+          label.append(l.rstrip())
+      return label
+
+  def classify_image(self,numClasses, graph, file_name, label_file, input_operation, output_operation):
+      input_height = 224
+      input_width = 224
+      input_mean = 0
+      input_std = 224
+
+      t = self.read_tensor_from_image_file(
+          file_name,
+          input_height=input_height,
+          input_width=input_width,
+          input_mean=input_mean,
+          input_std=input_std)
+
+      with tf.Session(graph=graph) as sess:
+          results = sess.run(output_operation.outputs[0], {
+              input_operation.outputs[0]: t
+          })
+      results = np.squeeze(results)
+
+      top_k = results.argsort()[-numClasses:][::-1]
+      labels = self.load_labels(label_file)
+      topLabel = labels[0:numClasses]
+      topResults = np.array(results[0:numClasses])
+      topScore = topResults[0]
+      topScoreInd = 0
+      for i in range(numClasses):
+          if topResults[i] > topScore:
+              topScore = topResults[i]
+              topScoreInd = i
+
+      return (topLabel[topScoreInd], topResults)
 
   def runWithoutWidget(self,modelName):
     self.modelName = modelName
@@ -376,28 +458,24 @@ class CNN_Image_ClassifierLogic(ScriptedLoadableModuleLogic):
 
   def stopClassifier(self):
     self.stopClassifierClicked = True
-    self.labelNode.RemoveObserver(self.labelObserver)
-    self.labelObserver = None
+    self.webcamReference.RemoveObserver(self.imageDataModifiedObserver)
+    self.imageDataModifiedObserver = None
 
   def updateObjectTable(self):
     for i in range(self.numObjects):
       if self.currentLabel == str(self.objectTable.item(i,0).text()) and float(self.confidences[i]) > self.confidenceSlider.value/100.0:
         self.objectTable.setItem(i,1,qt.QTableWidgetItem("Yes"))
-        self.objectTable.setItem(i,2,qt.QTableWidgetItem(self.confidences[i]))
+        self.objectTable.setItem(i,2,qt.QTableWidgetItem(str(round(self.confidences[i]*100,2))))
         self.currentConfidence = self.confidences[i]
       else:
         self.objectTable.setItem(i, 1, qt.QTableWidgetItem("No"))
-        self.objectTable.setItem(i, 2, qt.QTableWidgetItem(self.confidences[i]))
+        self.objectTable.setItem(i, 2, qt.QTableWidgetItem(str(round(self.confidences[i]*100,2))))
 
   def getFoundObject(self):
     imgClass = 0
-    self.labelNode = slicer.util.getNode('labelConnector')
-    labelMessage = self.labelNode.GetText()
-    if labelMessage != None:
-        labelMessage = labelMessage.split(',')
-        self.currentLabel = labelMessage[0]
-        self.confidences = labelMessage[1].strip('[]')
-        self.confidences = self.confidences.split()
+    if self.label != None:
+        self.currentLabel = self.label
+        self.confidences = self.percentage
         if self.runWithWidget == True:
             self.updateObjectTable()
     else:
