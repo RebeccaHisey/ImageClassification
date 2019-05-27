@@ -463,7 +463,7 @@ class CNN_Image_ClassifierLogic(ScriptedLoadableModuleLogic):
 
   def updateObjectTable(self):
     for i in range(self.numObjects):
-      if self.currentLabel == str(self.objectTable.item(i,0).text()) and float(self.confidences[i]) > self.confidenceSlider.value/100.0:
+      if self.currentLabel == str.lower(str(self.objectTable.item(i,0).text())) and float(self.confidences[i]) > self.confidenceSlider.value/100.0:
         self.objectTable.setItem(i,1,qt.QTableWidgetItem("Yes"))
         self.objectTable.setItem(i,2,qt.QTableWidgetItem(str(round(self.confidences[i]*100,2))))
         self.currentConfidence = self.confidences[i]
@@ -486,7 +486,7 @@ class CNN_Image_ClassifierLogic(ScriptedLoadableModuleLogic):
     if imgClass < self.numObjects and self.currentLabel == self.currentObjectClasses[imgClass]:
       self.currentConfidence = self.confidences[imgClass]
     else:
-        self.currentConfidence = self.confidences[4]
+        self.currentConfidence = self.confidences[-1]
     return [self.currentLabel, self.confidences, self.currentConfidence]
 
 
