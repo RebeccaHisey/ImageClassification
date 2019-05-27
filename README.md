@@ -6,11 +6,11 @@
   - add paths to RetrainCNN, CNN_Image_Classifier and Collect_Training_Images
 4. Add Slicer openCV, SlicerIGT and Sequences extension from Slicer extensions manager
 5. Install opencv, tensorflow and tensorflow_hub using pip
-  -\>\>\> import pip
-  -\>\>\> from pip.\_internal import main as pipmain
-  -\>\>\> pipmain(['install','tensorflow'])
-  -\>\>\> pipmain(['install','tensorflow_hub'])
-  -\>\>\> pipmain(['install','opencv-python'])
+  - \>\>\> import pip
+  - \>\>\> from pip.\_internal import main as pipmain
+  - \>\>\> pipmain(['install','tensorflow'])
+  - \>\>\> pipmain(['install','tensorflow_hub'])
+  - \>\>\> pipmain(['install','opencv-python'])
   - May need to run Slicer as administrator in Windows 
 6. Collect training photos
 - Open Collect_Training_Photos module in 3D Slicer
