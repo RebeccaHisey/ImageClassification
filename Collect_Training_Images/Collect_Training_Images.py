@@ -92,6 +92,13 @@ class Collect_Training_ImagesWidget(ScriptedLoadableModuleWidget):
     self.startStopCollectingImagesButton.enabled = False
     parametersFormLayout.addRow(self.startStopCollectingImagesButton)
 
+    #
+    # Retrain Classifier Button
+    #
+    self.retrainClassifierButton = qt.QPushButton("Retrain")
+    self.retrainClassifierButton.toolTip = "Retrain the convolutional neural network classifier"
+    self.retrainClassifierButton.enabled = False
+    parametersFormLayout.addRow(self.retrainClassifierButton)
 
     self.infoLabel = qt.QLabel("")
     parametersFormLayout.addRow(self.infoLabel)
@@ -99,6 +106,7 @@ class Collect_Training_ImagesWidget(ScriptedLoadableModuleWidget):
     # connections
     self.modelSelector.connect('currentIndexChanged(int)',self.onModelSelected)
     self.startStopCollectingImagesButton.connect('clicked(bool)', self.onStartStopCollectingImagesButton)
+    self.retrainClassifierButton.connect('clicked(bool)',self.onRetrainClicked)
     self.imageClassComboBox.connect('currentIndexChanged(int)',self.onImageClassSelected)
 
     # Add vertical spacer
@@ -268,7 +276,7 @@ class Collect_Training_ImagesWidget(ScriptedLoadableModuleWidget):
     else:
       for i in range(2, self.imageClassComboBox.count + 1):
         self.imageClassComboBox.removeItem(i)
-
+    self.retrainClassifierButton.enabled = self.modelSelector.currentText != "Select model" and self.modelSelector != "Create new model"
 
   def addImageClassesToComboBox(self):
     for i in range(2,self.imageClassComboBox.count + 1):
@@ -373,7 +381,7 @@ class Collect_Training_ImagesLogic(ScriptedLoadableModuleLogic):
     self.imageClassFilePath = imageClassFilePath
     if self.collectingImages == False:
       self.webcamImageVolume = slicer.util.getNode('Webcam_Reference')
-      self.webcamImageObserver = self.webcamImageVolume.AddObserver(slicer.vtkMRMLVolumeNode.ImageDataModifiedEvent, self.onStartCollectingImages)
+      self.webcamImageObserver = self.webcamImageVolume.AddObserver(slicer.vtkMRMLStreamingVolumeNode.FrameModifiedEvent, self.onStartCollectingImages)
       logging.info("Start collecting images")
     else:
       self.webcamImageVolume = slicer.util.getNode('Webcam_Reference')
@@ -387,7 +395,7 @@ class Collect_Training_ImagesLogic(ScriptedLoadableModuleLogic):
     try:
       # the module is in the python path
       import cv2
-    except ModuleNotFoundError:
+    except ImportError:
       # for the build directory, load from the file
       import imp, platform
       if platform.system() == 'Windows':
@@ -409,10 +417,7 @@ class Collect_Training_ImagesLogic(ScriptedLoadableModuleLogic):
     logging.info(self.numImagesInFile)
     imData = self.getVtkImageDataAsOpenCVMat('Webcam_Reference')
     imDataBGR = cv2.cvtColor(imData,cv2.COLOR_RGB2BGR)
-    if self.numImagesInFile < 10:
-      fileName = self.imageClassName + "_0" + str(self.numImagesInFile) + ".jpg"
-    else:
-      fileName = self.imageClassName + "_" + str(self.numImagesInFile) + ".jpg"
+    fileName = self.imageClassName + "_" + str(self.numImagesInFile).zfill(4) + ".jpg"
     cv2.imwrite(os.path.join(self.imageClassFilePath,fileName),imDataBGR)
 
   def getVtkImageDataAsOpenCVMat(self, volumeNodeName):

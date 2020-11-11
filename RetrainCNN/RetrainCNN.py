@@ -94,32 +94,6 @@ class RetrainCNNWidget(ScriptedLoadableModuleWidget):
     self.retrainButton.enabled = False
     parametersFormLayout.addRow(self.retrainButton)
 
-    self.advancedOptionsCollapsibleButton = ctk.ctkCollapsibleButton()
-    self.advancedOptionsCollapsibleButton.text = "Advanced Training Options"
-    parametersFormLayout.addRow(self.advancedOptionsCollapsibleButton)
-
-    self.advancedOptionsLayout = qt.QFormLayout(self.advancedOptionsCollapsibleButton)
-    self.tfHubModelSelector = qt.QComboBox()
-    self.tfHubModelSelector.addItems(["MobileNet","Inception-V3"])
-    self.advancedOptionsLayout.addRow(self.tfHubModelSelector)
-
-    self.numTrainingStepsSelector = qt.QSpinBox()
-    self.numTrainingStepsSelector.setMinimum(0)
-    self.numTrainingStepsSelector.setMaximum(1000000)
-    self.numTrainingStepsSelector.setSingleStep(100)
-    self.numTrainingStepsSelector.setValue(1000)
-    self.advancedOptionsLayout.addWidget(qt.QLabel("Number of Training Steps: "))
-    self.advancedOptionsLayout.addWidget(self.numTrainingStepsSelector)
-
-    self.batchSizeSelector = qt.QSpinBox()
-    self.batchSizeSelector.setMinimum(0)
-    self.batchSizeSelector.setMaximum(1000000)
-    self.batchSizeSelector.setSingleStep(100)
-    self.batchSizeSelector.setValue(1000)
-    self.advancedOptionsLayout.addWidget(qt.QLabel("Batch Size: "))
-    self.advancedOptionsLayout.addWidget(self.batchSizeSelector)
-
-
     # connections
     self.modelSelector.connect('currentIndexChanged(int)', self.onModelSelected)
     self.retrainButton.connect('clicked(bool)', self.onRetrainButton)
