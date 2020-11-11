@@ -4,6 +4,7 @@ import cv2
 import sys
 import numpy
 import random
+import argparse
 import SimpleITK as sitk
 import tensorflow
 import tensorflow.keras
@@ -12,9 +13,9 @@ from tensorflow.keras import layers
 from tensorflow.keras.models import model_from_json
 from pyIGTLink import pyIGTLink
 
-def loadCNNModel(modelFolder,testID):
-    structureFileName = 'mobileNetv2_cnn_lovo_'+testID+'.json'
-    weightsFileName = 'mobileNetv2_cnn_lovo_'+testID+'.h5'
+def loadCNNModel(modelFolder,modelName):
+    structureFileName = modelName +'.json'
+    weightsFileName = modelName+'.h5'
     with open(os.path.join(modelFolder,structureFileName),"r") as modelStructureFile:
         JSONModel = modelStructureFile.read()
     model = model_from_json(JSONModel)
@@ -23,9 +24,9 @@ def loadCNNModel(modelFolder,testID):
     model.compile(optimizer=adam, loss='categorical_crossentropy', metrics=['accuracy'])
     return model
 
-def loadLSTMModel(modelFolder, testID):
-    structureFileName = 'LSTM_TBME_lovo_50f4ds_' + testID + '.json'
-    weightsFileName = 'LSTM_TBME_lovo_50f4ds_' + testID + '.h5'
+def loadLSTMModel(modelFolder, modelName):
+    structureFileName = modelName + '.json'
+    weightsFileName = modelName + '.h5'
     with open(os.path.join(modelFolder, structureFileName), "r") as modelStructureFile:
         JSONModel = modelStructureFile.read()
     model = model_from_json(JSONModel)
@@ -77,14 +78,12 @@ def CNNClassifyImage(image,cnnModel):
 
 def main():
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-    #model_name = FLAGS.model_name
-    modelFolder ='d:/Pilot_Study/Networks/JournalArticle'
-    numClasses = int(8)
-    testID = '4'
-    cnnModel = loadCNNModel(modelFolder,testID)
-    lstmModel = loadLSTMModel(modelFolder,testID)
+    cnn_model_name = FLAGS.cnn_model_name
+    lstm_model_name = FLAGS.lstm_model_name
+    modelFolder =FLAGS.model_directory
+    cnnModel = loadCNNModel(modelFolder,cnn_model_name)
+    lstmModel = loadLSTMModel(modelFolder,lstm_model_name)
     prevSequence = numpy.zeros((50,8))
-    currentTime = time.time()
 
     print("Server starting...")
     server = pyIGTLink.PyIGTLinkServer(port=18947, localServer=True)
@@ -110,20 +109,39 @@ def main():
                         image = message._image
                         image = image[0]
                         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-                        #cv2.imshow('img',image)
-                        #cv2.waitKey(0)
                         print(time.time())
-                        #(label, confidence,imgSequence) = classifyImage(image,prevSequence,cnnModel,lstmModel)
-                        (label, confidence) = CNNClassifyImage(image, cnnModel)
+                        (label, confidence,imgSequence) = classifyImage(image,prevSequence,cnnModel,lstmModel)
+
                         print(time.time())
                         labelMessage = pyIGTLink.StringMessage(str(label)+ "," + str(confidence), device_name='labelConnector')
 
                         server.send_message(labelMessage)
                         print (str(label) + str(confidence))
                         print(frameCount)
-                        #prevSequence = imgSequence
+                        prevSequence = imgSequence
             time.sleep(0.25)
     except KeyboardInterrupt:
         pass
 
+if __name__ == '__main__':
+  parser = argparse.ArgumentParser()
+  parser.add_argument(
+      '--cnn_model_name',
+      type=str,
+      default='',
+      help='Name of cnn model.'
+  )
+  parser.add_argument(
+      '--lstm_model_name',
+      type=str,
+      default='',
+      help='Name of lstm model.'
+  )
+  parser.add_argument(
+      '--model_directory',
+      type=str,
+      default='',
+      help='Location of model.'
+  )
+FLAGS, unparsed = parser.parse_known_args()
 main()

@@ -335,10 +335,10 @@ class CNN_Image_ClassifierLogic(ScriptedLoadableModuleLogic):
       return graph
 
   def read_tensor_from_image_file(self, image,
-                                  input_height=244,
-                                  input_width=244,
+                                  input_height=224,
+                                  input_width=224,
                                   input_mean=0,
-                                  input_std=244):
+                                  input_std=224):
 
       float_caster = tf.cast(image, tf.float32)  # instead of using file reader, pass in image as 3D numpy array
       dims_expander = tf.expand_dims(float_caster, 0)
@@ -401,7 +401,7 @@ class CNN_Image_ClassifierLogic(ScriptedLoadableModuleLogic):
         self.labelNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLTextNode","labelConnector")
     self.labelObserver = self.labelNode.AddObserver(slicer.vtkMRMLTextNode.TextModifiedEvent, self.onLabelModified)
     self.moduleDir = os.path.dirname(slicer.modules.collect_training_images.path)
-    self.currentModelDirectory = os.path.join(self.moduleDir, os.pardir, "Models",modelName)
+    self.currentModelDirectory = os.path.join(self.moduleDir, os.pardir, "Models","CLT0713")
     modelObjectClasses = os.listdir(os.path.join(self.currentModelDirectory, "training_photos"))
     self.currentObjectClasses = [dir for dir in modelObjectClasses if dir.find(".") == -1]
     self.numObjects = len(self.currentObjectClasses)

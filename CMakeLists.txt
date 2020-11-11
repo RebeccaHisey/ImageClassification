@@ -24,6 +24,7 @@ add_subdirectory(TrainClassifier)
 add_subdirectory(ClassifyImages)
 add_subdirectory(CNN_Image_Classifier)
 add_subdirectory(Collect_Training_Images)
+add_subdirectory(RetrainCNN)
 ## NEXT_MODULE
 
 #-----------------------------------------------------------------------------

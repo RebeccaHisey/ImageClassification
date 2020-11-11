@@ -1130,7 +1130,7 @@ if __name__ == '__main__':
   parser.add_argument(
       '--how_many_training_steps',
       type=int,
-      default=1000,
+      default=10000,
       help='How many training steps to run before ending.'
   )
   parser.add_argument(
@@ -1160,7 +1160,7 @@ if __name__ == '__main__':
   parser.add_argument(
       '--train_batch_size',
       type=int,
-      default=100,
+      default=50,
       help='How many images to train on at a time.'
   )
   parser.add_argument(
@@ -1248,7 +1248,7 @@ if __name__ == '__main__':
       '--tfhub_module',
       type=str,
       default=(
-          'https://tfhub.dev/google/imagenet/inception_v3/feature_vector/1'),
+          "https://tfhub.dev/google/imagenet/mobilenet_v1_100_224/feature_vector/1"),
       help="""\
       Which TensorFlow Hub module to use.
       See https://github.com/tensorflow/hub/blob/r0.1/docs/modules/image.md
